@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义Checkbox样式演示</title>
+    <style>
+        /* 隐藏原始checkbox */
+        .custom-checkbox {
+            display: none;
+        }
+
+        /* 基础样式重置 */
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* 树形结构样式 */
+        .tree {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .tree-item {
+            margin-bottom: 10px;
+        }
+
+        .tree-parent, .tree-child {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+
+        .tree-parent {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .tree-child {
+            margin-left: 30px;
+            font-size: 14px;
+        }
+
+        /* 自定义checkbox容器 */
+        .checkbox-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 自定义checkbox外观 */
+        .checkbox-wrapper label {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        /* 文本标签样式 */
+        .text-label {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* 勾选时的样式 */
+        .custom-checkbox:checked + label {
+            background-color: #4CAF50; /* 绿色背景 */
+            border-color: #4CAF50;
+        }
+
+        /* 勾选时的对勾 */
+        .custom-checkbox:checked + label::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* 悬停效果 */
+        .checkbox-wrapper label:hover {
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        /* 不同颜色主题的checkbox */
+        .checkbox-blue:checked + label {
+            background-color: #2196F3;
+            border-color: #2196F3;
+        }
+
+        .checkbox-red:checked + label {
+            background-color: #f44336;
+            border-color: #f44336;
+        }
+
+        .checkbox-purple:checked + label {
+            background-color: #9C27B0;
+            border-color: #9C27B0;
+        }
+
+        /* 禁用状态 */
+        .custom-checkbox:disabled + label {
+            background-color: #f5f5f5;
+            border-color: #ddd;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* 大尺寸checkbox */
+        .checkbox-large label {
+            width: 30px;
+            height: 30px;
+        }
+
+        .checkbox-large .custom-checkbox:checked + label::after {
+            font-size: 18px;
+        }
+
+        /* 圆角checkbox */
+        .checkbox-rounded label {
+            border-radius: 50%;
+        }
+
+        .checkbox-rounded .custom-checkbox:checked + label::after {
+            content: '●';
+        }
+
+        /* 子节点容器样式 */
+        .tree-children {
+            margin-left: 20px;
+            border-left: 1px dashed #ccc;
+            padding-left: 10px;
+        }
+
+        /* 半选中状态样式 */
+        .custom-checkbox.indeterminate + label {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+
+        .custom-checkbox.indeterminate + label::after {
+            content: '−';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <ul id="tree-container" class="tree"></ul>
+    <script>
+const tree = [
+    {
+        name: '工业园',
+        children: ['保安镇金塘工业园','陈贵镇纺织服装产业新区','陈贵镇马鞍山产业园','临空经济区·还地桥金桥工业园','金山店镇新型环保材料产业园','灵成工业园','金湖街道非金属新型材料产业园','黄石大冶湖高新技术产业园','其他']
+    },
+    {
+        name: '产业园',
+        children: [ "低碳采冶和绿色建材","生命健康","高端装备制造","光电子信息","新能源与智能网联汽车","未来产业"]
+    },
+    {
+        name: '三维倾斜模型',
+        children: ['大冶城区', '保安镇', '陈贵镇', '大箕铺镇']
+    }   
+];
+
+function createTreeControl(data, container) {
+    data.forEach((item, index) => {
+        // 创建父节点
+        const parentLi = document.createElement('li');
+        parentLi.className = 'tree-item';
+        
+        const parentDiv = document.createElement('div');
+        parentDiv.className = 'tree-parent checkbox-wrapper';
+        
+        const parentCheckbox = document.createElement('input');
+        parentCheckbox.type = 'checkbox';
+        parentCheckbox.className = 'custom-checkbox checkbox-red';
+        parentCheckbox.id = `parent-${index}`;
+        parentCheckbox.checked = index < 2 ? true : false;
+        
+        const parentLabel = document.createElement('label');
+        parentLabel.htmlFor = `parent-${index}`;
+        
+        const parentTextLabel = document.createElement('span');
+        parentTextLabel.className = 'text-label';
+        parentTextLabel.textContent = item.name;
+        
+        // 添加点击文本也能切换checkbox的功能
+        parentTextLabel.addEventListener('click', function() {
+            parentCheckbox.click();
+        });
+        
+        parentDiv.appendChild(parentCheckbox);
+        parentDiv.appendChild(parentLabel);
+        parentDiv.appendChild(parentTextLabel);
+        parentLi.appendChild(parentDiv);
+        
+        // 创建子节点容器
+        const childrenUl = document.createElement('ul');
+        childrenUl.className = 'tree-children';
+        childrenUl.id = `children-${index}`;
+        
+        // 创建子节点
+        item.children.forEach((child, childIndex) => {
+            const childLi = document.createElement('li');
+            childLi.className = 'tree-child checkbox-wrapper';
+            
+            const childCheckbox = document.createElement('input');
+            childCheckbox.type = 'checkbox';
+            childCheckbox.className = 'custom-checkbox checkbox-red';
+            childCheckbox.id = `child-${index}-${childIndex}`;
+            childCheckbox.checked = index < 2 ? true : false;
+            
+            const childLabel = document.createElement('label');
+            childLabel.htmlFor = `child-${index}-${childIndex}`;
+            
+            const childTextLabel = document.createElement('span');
+            childTextLabel.className = 'text-label';
+            childTextLabel.textContent = child;
+            
+            // 添加点击文本也能切换checkbox的功能
+            childTextLabel.addEventListener('click', function() {
+                childCheckbox.click();
+            });
+            
+            childLi.appendChild(childCheckbox);
+            childLi.appendChild(childLabel);
+            childLi.appendChild(childTextLabel);
+            childrenUl.appendChild(childLi);
+            
+            // 子节点复选框事件
+            childCheckbox.addEventListener('change', function(e) {
+                updateParentCheckbox(e, index);
+            });
+        });
+        
+        parentLi.appendChild(childrenUl);
+        container.appendChild(parentLi);
+        
+        // 父节点复选框事件
+        parentCheckbox.addEventListener('change', function(e) {
+            const children = childrenUl.querySelectorAll('.tree-child input[type="checkbox"]');
+            children.forEach(child => {
+                child.checked = this.checked;
+            });
+            // 清除半选中状态
+            this.classList.remove('indeterminate');
+        });
+        
+        // 初始化时检查父节点状态
+        updateParentCheckbox({ target: parentCheckbox }, index);
+    });
+}
+
+// 更新父节点复选框状态
+function updateParentCheckbox(e, parentIndex) {
+    const parentCheckbox = document.getElementById(`parent-${parentIndex}`);
+    const children = document.querySelectorAll(`#children-${parentIndex} input[type="checkbox"]`);
+    const checkedChildren = document.querySelectorAll(`#children-${parentIndex} input[type="checkbox"]:checked`);
+    
+    // 根据子节点选中状态更新父节点状态
+    if (checkedChildren.length === 0) {
+        parentCheckbox.checked = false;
+        parentCheckbox.classList.remove('indeterminate');
+    } else if (checkedChildren.length === children.length) {
+        parentCheckbox.checked = true;
+        parentCheckbox.classList.remove('indeterminate');
+    } else {
+        parentCheckbox.checked = false;
+        parentCheckbox.classList.add('indeterminate');
+    }
+}
+
+const container = document.getElementById('tree-container');
+createTreeControl(tree, container);
+    </script>
+</body>
+</html>

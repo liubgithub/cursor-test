@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中粮糖业商情平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+            background: #0a0e27;
+            color: #fff;
+            /* padding: 20px; */
+            overflow-x: hidden;
+        }
+        
+        .dashboard {
+            /* max-width: 1920px; */
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            /* margin-bottom: 20px; */
+            padding-top: 12px;
+        }
+        
+        .header .h1 {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4fc3f7;
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
+        #h1 {
+            position: absolute;
+            text-align: left;
+            margin-left: 10px;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: 720px 270px;
+            gap: 12px;
+            height: auto;
+        }
+        
+        .panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: solid rgba(79, 195, 247, 0.6);
+            border-width: 2px 0px 2px 0px;
+            /* border-radius: 8px; */
+            padding: 10px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-title {
+            font-size: 14px;
+            color: #4fc3f7;
+            margin-bottom: 8px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .stat-box {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(79, 195, 247, 0.2);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #f7d7a2;
+            margin-bottom: 5px;
+        }
+        
+        .stat-change {
+            font-size: 12px;
+        }
+        
+        .stat-change.positive {
+            color: #4ade80;
+        }
+        
+        .stat-change.negative {
+            color: #f87171;
+        }
+        
+        .country-stat {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* ========== 布局结构 ========== */
+        /* 左侧列容器 - 包含3个模块，垂直排列 */
+        .left-column {
+            grid-column: 1 / 4;  /* 占3列 */
+            grid-row: 1;
+            /* display: flex; */
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* 中间地图 */
+        .top-center {
+            grid-column: 4 / 10;  /* 占6列 */
+            grid-row: 1;
+        }
+        
+        /* 右侧列容器 - 包含2个模块，垂直排列 */
+        .right-column {
+            grid-column: 10 / 13;  /* 占3列 */
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        /* 左侧2个模块 - 每个模块平均分配高度 */
+        .left-column .panel {
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* 右侧2个模块 - 每个模块平均分配高度 */
+        .right-column .panel {
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* 地图容器 */
+        #world-map {
+            min-height: 450px;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.5);
+        }
+        
+        /* Leaflet 地图样式调整 */
+        #world-map .leaflet-container {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        
+        #world-map .leaflet-tile-container img {
+            filter: brightness(0.6) invert(1) hue-rotate(180deg) brightness(0.7);
+        }
+        
+        #world-map .leaflet-control {
+            background: rgba(15, 23, 42, 0.2);
+            border: 1px solid rgba(79, 195, 247, 0.2);
+            color: #cbd5e1;
+        }
+        
+        #world-map .leaflet-control-zoom a {
+            color: #4fc3f7;
+            background-color: rgba(15, 23, 42, 0.9);
+        }
+        
+        #world-map .leaflet-control-zoom a:hover {
+            background-color: rgba(79, 195, 247, 0.2);
+        }
+        
+        /* Canvas 图层样式 */
+        #world-map .leaflet-canvas-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+        
+        /* 底部布局 - 4个模块 */
+        .bottom-left {
+            grid-column: 1 / 4;  /* 底部左侧，占3列 */
+            grid-row: 2;
+        }
+        
+        .bottom-center-left {
+            grid-column: 4 / 7;  /* 地图下方左侧，占3列 */
+            grid-row: 2;
+        }
+        
+        .bottom-center-right {
+            grid-column: 7 / 10;  /* 地图下方右侧，占3列 */
+            grid-row: 2;
+        }
+        
+        /* 底部右侧：国内食糖进口成本估算表 */
+        .bottom-right {
+            grid-column: 10 / 13;  /* 底部右侧，占3列 */
+            grid-row: 2;
+        }
+        
+        /* 地区综合统计表：横跨两块区域 */
+        #region-table {
+            grid-column: 4 / 10;  /* 横跨 bottom-center-left 和 bottom-center-right，占6列 */
+            grid-row: 2;
+        }
+        
+        /* 图表容器通用样式 */
+        .chart-container {
+            flex: 1;
+            min-height: 300px;
+        }
+        
+        /* 左侧模块特殊处理 */
+        .top-left-1 .stat-box {
+            flex-shrink: 0;
+        }
+        
+        .top-left-1 .country-stat {
+            flex: 1;
+        }
+        
+        .top-left-2 .chart-container {
+            flex: 1;
+            min-height: 120px;
+        }
+        
+        /* 右侧模块特殊处理 */
+        .top-right-1 .chart-container,
+        .top-right-2 .chart-container {
+            flex: 1;
+            min-height: 150px;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.2);
+        }
+        
+        .data-table th {
+            background: rgba(79, 195, 247, 0.1);
+            color: #4fc3f7;
+            font-weight: 500;
+        }
+        
+        /* 地区综合统计表特定样式 */
+        #region-table .data-table {
+            font-size: 10px;
+        }
+        
+        #region-table .data-table th,
+        #region-table .data-table td {
+            padding: 4px 6px;
+            text-align: center;
+        }
+        
+        #region-table .data-table th:first-child,
+        #region-table .data-table td:first-child {
+            text-align: left;
+        }
+        
+        .data-table td {
+            color: #cbd5e1;
+        }
+        
+        .data-table tr:hover {
+            background: rgba(79, 195, 247, 0.05);
+        }
+        .arrow-header {
+            height: 32px;
+            width: 32px;
+            background-size: 100% 100%;
+            margin-top: 7px;
+        }
+        #lh {
+            background-image: url(./images/left-arrow.png);
+            margin-right: 12px;
+        }
+        #rh {
+            background-image: url(./images/right-arrow.png);
+            margin-left: 12px;
+        }
+        
+        /* 日期选择器样式 */
+        .date-picker-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+        
+        .date-picker-label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-right: 8px;
+        }
+        
+        .date-picker {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 4px;
+            padding: 4px 8px;
+            color: #cbd5e1;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .date-picker:hover {
+            border-color: rgba(79, 195, 247, 0.6);
+            background: rgba(30, 41, 59, 1);
+        }
+        
+        .date-picker:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            box-shadow: 0 0 5px rgba(79, 195, 247, 0.3);
+        }
+        
+        /* 日期选择器内部样式（通过伪元素） */
+        .date-picker::-webkit-calendar-picker-indicator {
+            filter: invert(1) brightness(0.8);
+            cursor: pointer;
+        }
+        
+        /* 地图色带图例样式 */
+        .map-legend {
+            background: rgba(15, 23, 42, 0.98);
+            border: 2px solid rgba(79, 195, 247, 0.6);
+            border-radius: 6px;
+            padding: 10px 8px;
+            width: 70px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Leaflet Control 样式覆盖 */
+        .leaflet-bottom.leaflet-right .map-legend {
+            margin-bottom: 10px;
+            margin-right: 10px;
+        }
+        
+        .map-legend-title {
+            font-size: 11px;
+            color: #4fc3f7;
+            margin-bottom: 6px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .map-legend-gradient {
+            width: 100%;
+            height: 200px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 4px;
+            margin-bottom: 6px;
+            position: relative;
+            background: linear-gradient(to top, 
+                rgba(30, 58, 138, 0.7) 0%,
+                rgba(59, 130, 246, 0.7) 25%,
+                rgba(96, 165, 250, 0.7) 50%,
+                rgba(147, 197, 253, 0.7) 75%,
+                rgba(219, 234, 254, 0.7) 100%);
+        }
+        
+        .map-legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+        
+        .map-legend-label {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <div id="h1" class="h1" style="width: 400px;">中粮糖业商情平台</div>
+            <div style="width: 220px;margin: 0 auto;display: flex;">
+                <div class="arrow-header" id="lh"></div>
+                <div id="sqgl" class="h1">商情概览</div>
+                <div class="arrow-header" id="rh"></div>
+            </div>
+        </div>
+        
+        <div class="grid-container">
+            <!-- 左侧列容器 - 包含2个模块 -->
+            <div class="left-column">
+                <!-- 顶部左侧第一块：全球食糖产量和主要国家产量（合并） -->
+                <div class="panel top-left-1">
+                    <div class="panel-title">各地面积统计图</div>
+                    <div class="chart-container" id="area-chart"></div>
+                </div>
+                
+                <!-- 顶部左侧第二块：期货价格走势 -->
+                <div class="panel top-left-2" style="height: 360px;margin-top:10px">
+                    <div class="panel-title">2025年降水变化统计</div>
+                    <div class="date-picker-container">
+                        <label for="rain-date-picker" class="date-picker-label">选择日期：</label>
+                        <input type="date" id="rain-date-picker" class="date-picker" />
+                    </div>
+                    <div class="chart-container" id="rain-chart"></div>
+                </div>
+            </div>
+            
+            <!-- 顶部中间：世界地图 -->
+            <div class="panel top-center">
+                <div class="panel-title">24/25榨季全球主要产糖国分布(万吨)</div>
+                <div class="chart-container" id="world-map"></div>
+            </div>
+            
+            <!-- 右侧列容器 - 包含2个模块 -->
+            <div class="right-column">
+                <!-- 顶部右侧第一块：国内主产区产糖情况 -->
+                <div class="panel top-right-1">
+                    <div class="panel-title">2025年产量情况(万吨)</div>
+                    <div class="chart-container" id="production-chart"></div>
+                </div>
+                
+                <!-- 顶部右侧第二块：中国食糖月度进口量 -->
+                <div class="panel top-right-2">
+                    <div class="panel-title">广西壮族自治区月度进出口量(万吨)</div>
+                    <div class="chart-container" id="china-import-chart"></div>
+                </div>
+            </div>
+            
+            <!-- 底部左侧：供需情况与价格走势 -->
+            <div class="panel bottom-left">
+                <div class="panel-title">2025年气温变化统计</div>
+                <div class="date-picker-container">
+                    <label for="temperature-date-picker" class="date-picker-label">选择日期：</label>
+                    <input type="date" id="temperature-date-picker" class="date-picker" />
+                </div>
+                <div class="chart-container" id="temperature-chart"></div>
+            </div>
+            
+            <!-- 底部中间右侧：主要出口国食糖出口量占比 -->
+            <div class="panel bottom-right">
+                <div class="panel-title">24/25榨季主要出口国食糖出口量占比</div>
+                <div class="chart-container" id="export-share-chart"></div>
+            </div>
+            
+            <!-- 底部中间：地区综合统计表 -->
+            <div class="panel" id="region-table">
+                <div class="panel-title">地区综合统计表</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>地名</th>
+                            <th>数量</th>
+                            <th>面积</th>
+                            <th>最小值</th>
+                            <th>最大值</th>
+                            <th>平均值</th>
+                            <th>标准差</th>
+                            <th>总产(万吨)</th>
+                            <th>实测总产(万吨)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="region-table-body">
+                        <!-- 数据将通过 JavaScript 动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="lib/echarts.min.js"></script>
+    <script src="lib/kriging.js"></script>
+    <script>
+        // 深色主题配置
+        const darkTheme = {
+            backgroundColor: 'transparent',
+            textStyle: {
+                color: '#cbd5e1'
+            },
+            title: {
+                textStyle: {
+                    color: '#4fc3f7'
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                borderColor: '#4fc3f7',
+                textStyle: {
+                    color: '#fff'
+                }
+            },
+            legend: {
+                textStyle: {
+                    color: '#cbd5e1'
+                }
+            },
+            grid: {
+                borderColor: 'rgba(79, 195, 247, 0.2)'
+            }
+        };
+        
+        // 0. 广西省面积统计图
+        const areaChart = echarts.init(document.getElementById('area-chart'));
+        
+        // 加载面积数据并初始化图表
+        fetch('data/area.json')
+            .then(response => response.json())
+            .then(data => {
+                // 处理数据：提取地名和面积，按面积从大到小排序
+                const chartData = data
+                    .map(item => ({
+                        name: item.地名,
+                        value: parseFloat(item.种植面积.trim())
+                    }))
+                    .sort((a, b) => b.value - a.value);
+                
+                const cities = chartData.map(item => item.name);
+                const areas = chartData.map(item => item.value);
+                
+                const areaChartOption = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function(params) {
+                            const param = params[0];
+                            return param.name + '<br/>种植面积: ' + param.value + ' 万亩';
+                        }
+                    },
+                    grid: {
+                        left: '10%',
+                        right: '5%',
+                        bottom: '15%',
+                        top: '5%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: cities,
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11,
+                            rotate: 45,
+                            interval: 0
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '种植面积(万亩)',
+                        nameTextStyle: {
+                            color: '#94a3b8',
+                            fontSize: 12
+                        },
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.1)'
+                            }
+                        }
+                    },
+                    series: [{
+                        name: '种植面积',
+                        type: 'bar',
+                        data: areas,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                {offset: 0, color: '#60a5fa'},
+                                {offset: 1, color: '#1e3a8a'}
+                            ]),
+                            borderRadius: [4, 4, 0, 0]
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    {offset: 0, color: '#93c5fd'},
+                                    {offset: 1, color: '#3b82f6'}
+                                ])
+                            }
+                        },
+                        label: {
+                            show: true,
+                            position: 'top',
+                            color: '#cbd5e1',
+                            fontSize: 10,
+                            formatter: '{c}'
+                        }
+                    }]
+                };
+                
+                areaChart.setOption(areaChartOption);
+            })
+            .catch(error => {
+                console.error('加载面积数据失败:', error);
+                document.getElementById('area-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/area.json 文件</div>';
+            });
+        
+        // 1. Leaflet + Kriging 插值地图
+        let map = null;
+        let chinaBoundary = null;
+        let interpolationLayer = null;
+        let samplePointsLayer = null;
+        
+        // 检查点是否在中国边界内
+        function pointInPolygon(point, polygon) {
+            const x = point[0];
+            const y = point[1];
+            let inside = false;
+            
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i][0], yi = polygon[i][1];
+                const xj = polygon[j][0], yj = polygon[j][1];
+                
+                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            
+            return inside;
+        }
+        
+        // 检查点是否在 GeoJSON 多边形内
+        function pointInGeoJSON(point, geojson) {
+            if (geojson.type === 'FeatureCollection') {
+                return geojson.features.some(feature => pointInGeoJSON(point, feature));
+            } else if (geojson.type === 'Feature') {
+                return pointInGeoJSON(point, geojson.geometry);
+            } else if (geojson.type === 'Polygon') {
+                return pointInPolygon(point, geojson.coordinates[0]);
+            } else if (geojson.type === 'MultiPolygon') {
+                return geojson.coordinates.some(polygon => pointInPolygon(point, polygon[0]));
+            }
+            return false;
+        }
+        
+        // 获取中国边界的边界框
+        function getChinaBounds(geojson) {
+            let minLon = Infinity, maxLon = -Infinity;
+            let minLat = Infinity, maxLat = -Infinity;
+            
+            function processCoordinates(coords) {
+                if (Array.isArray(coords[0][0])) {
+                    coords.forEach(coord => processCoordinates(coord));
+                } else {
+                    coords.forEach(coord => {
+                        const [lon, lat] = coord;
+                        minLon = Math.min(minLon, lon);
+                        maxLon = Math.max(maxLon, lon);
+                        minLat = Math.min(minLat, lat);
+                        maxLat = Math.max(maxLat, lat);
+                    });
+                }
+            }
+            
+            if (geojson.type === 'FeatureCollection') {
+                geojson.features.forEach(feature => {
+                    if (feature.geometry.type === 'Polygon') {
+                        processCoordinates(feature.geometry.coordinates);
+                    } else if (feature.geometry.type === 'MultiPolygon') {
+                        feature.geometry.coordinates.forEach(polygon => {
+                            processCoordinates(polygon);
+                        });
+                    }
+                });
+            }
+            
+            return { minLon, maxLon, minLat, maxLat };
+        }
+        
+        // 在中国范围内生成随机点
+        function generateRandomPointsInChina(geojson, count = 1000) {
+            const bounds = getChinaBounds(geojson);
+            const points = [];
+            let attempts = 0;
+            const maxAttempts = count * 10; // 最多尝试次数
+            
+            while (points.length < count && attempts < maxAttempts) {
+                const lon = bounds.minLon + Math.random() * (bounds.maxLon - bounds.minLon);
+                const lat = bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
+                
+                if (pointInGeoJSON([lon, lat], geojson)) {
+                    // 生成随机值，范围 0-100
+                    const value = Math.random() * 100;
+                    points.push([lon, lat, value]);
+                }
+                attempts++;
+            }
+            
+            return points;
+        }
+        
+        // 使用 Kriging 进行插值
+        function performKrigingInterpolation(points, bounds, gridSize = 125) {
+            if (typeof kriging === 'undefined') {
+                console.error('kriging.js 未加载');
+                return null;
+            }
+            
+            if (points.length < 3) {
+                console.error('采样点数量不足，至少需要3个点');
+                return null;
+            }
+            
+            // 提取坐标和值
+            const t = points.map(p => p[2]); // 值
+            const x = points.map(p => p[0]); // 经度
+            const y = points.map(p => p[1]); // 纬度
+            
+            // 训练变异函数模型（使用指数模型）
+            const variogram = kriging.train(t, x, y, 'exponential', 0, 100);
+            
+            // 将边界框转换为矩形多边形（kriging.grid 期望多边形数组格式）
+            // 格式：[[[x1, y1], [x2, y2], [x3, y3], [x4, y4]]]
+            const polygon = [[
+                [bounds.minLon, bounds.minLat],  // 左下
+                [bounds.minLon, bounds.maxLat],  // 左上
+                [bounds.maxLon, bounds.maxLat],  // 右上
+                [bounds.maxLon, bounds.minLat]   // 右下
+            ]];
+            
+            // 计算网格步长（width 参数是单位距离，不是网格数量）
+            // 增加网格密度以获得更平滑的过渡效果
+            const lonRange = bounds.maxLon - bounds.minLon;
+            const latRange = bounds.maxLat - bounds.minLat;
+            const maxRange = Math.max(lonRange, latRange);
+            const width = maxRange / gridSize;
+            
+            // 生成插值网格
+            const grid = kriging.grid(polygon, variogram, width);
+            
+            return {
+                grid: grid,
+                bounds: bounds,
+                gridSize: gridSize,
+                points: points,
+                width: width
+            };
+        }
+        
+        // 地图图例控制
+        let mapLegendControl = null;
+        let legendMinElement = null;
+        let legendMaxElement = null;
+        
+        // 创建地图图例
+        function createMapLegend() {
+            if (!map) return;
+            
+            // 如果图例已存在，先移除
+            if (mapLegendControl) {
+                map.removeControl(mapLegendControl);
+            }
+            
+            // 创建自定义图例控件
+            const LegendControl = L.Control.extend({
+                onAdd: function(map) {
+                    const div = L.DomUtil.create('div', 'map-legend');
+                    div.innerHTML = `
+                        <div class="map-legend-title">数值范围</div>
+                        <div class="map-legend-gradient"></div>
+                        <div class="map-legend-labels">
+                            <div class="map-legend-label" id="legend-min">0</div>
+                            <div class="map-legend-label" id="legend-max">100</div>
+                        </div>
+                    `;
+                    div.style.display = 'none';
+                    
+                    // 保存对标签元素的引用
+                    legendMinElement = div.querySelector('#legend-min');
+                    legendMaxElement = div.querySelector('#legend-max');
+                    
+                    return div;
+                },
+                onRemove: function(map) {
+                    // 清理工作
+                    legendMinElement = null;
+                    legendMaxElement = null;
+                }
+            });
+            
+            mapLegendControl = new LegendControl({
+                position: 'bottomright'
+            });
+            
+            mapLegendControl.addTo(map);
+        }
+        
+        // 更新地图图例
+        function updateMapLegend(minValue, maxValue) {
+            if (!mapLegendControl) {
+                createMapLegend();
+            }
+            
+            // 等待控件完全添加到地图后再更新
+            setTimeout(() => {
+                const legendElement = mapLegendControl.getContainer();
+                
+                if (legendElement) {
+                    legendElement.style.display = 'block';
+                    
+                    // 使用保存的引用或重新查找元素
+                    const minEl = legendMinElement || legendElement.querySelector('#legend-min');
+                    const maxEl = legendMaxElement || legendElement.querySelector('#legend-max');
+                    
+                    if (minEl && maxEl) {
+                        minEl.textContent = minValue.toFixed(1);
+                        maxEl.textContent = maxValue.toFixed(1);
+                    }
+                }
+            }, 100);
+        }
+        
+        // 将插值结果绘制到 Leaflet 地图上（自动生成图片）
+        function drawInterpolationOnMap(interpolationResult, geojson) {
+            if (!interpolationResult || !map) return;
+            
+            // 清除之前的图层
+            if (interpolationLayer) {
+                map.removeLayer(interpolationLayer);
+            }
+            if (samplePointsLayer) {
+                map.removeLayer(samplePointsLayer);
+            }
+            
+            const { grid, bounds, points, width } = interpolationResult;
+            
+            // kriging.grid 返回的网格格式：grid[x][y]，其中 x 和 y 是索引
+            // grid.xlim 和 grid.ylim 是边界范围，grid.width 是步长
+            const xlim = grid.xlim || [bounds.minLon, bounds.maxLon];
+            const ylim = grid.ylim || [bounds.minLat, bounds.maxLat];
+            const gridWidth = grid.width || width;
+            
+            // 计算值的范围用于颜色映射
+            const allValues = [];
+            for (let i = 0; i < grid.length; i++) {
+                if (grid[i]) {
+                    for (let j = 0; j < grid[i].length; j++) {
+                        if (grid[i][j] !== undefined && grid[i][j] !== null) {
+                            allValues.push(grid[i][j]);
+                        }
+                    }
+                }
+            }
+            
+            if (allValues.length === 0) {
+                console.error('插值网格为空');
+                return;
+            }
+            
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            
+            // 更新图例
+            updateMapLegend(minValue, maxValue);
+            
+            // 生成随机颜色数组（每次绘制时生成新的色系）
+            function generateRandomColors(count = 5) {
+                const colors = [];
+                for (let i = 0; i < count; i++) {
+                    colors.push({
+                        r: Math.floor(Math.random() * 256),
+                        g: Math.floor(Math.random() * 256),
+                        b: Math.floor(Math.random() * 256)
+                    });
+                }
+                return colors;
+            }
+            
+            // 生成随机色系
+            const colors = generateRandomColors(5);
+            
+            // 改进的颜色映射函数 - 使用线性插值实现平滑过渡
+            function getColor(value) {
+                if (value === undefined || value === null) return 'rgba(0,0,0,0)';
+                const normalized = Math.max(0, Math.min(1, (value - minValue) / (maxValue - minValue)));
+                
+                if (normalized <= 0) {
+                    return `rgba(${colors[0].r}, ${colors[0].g}, ${colors[0].b}, 0.7)`;
+                } else if (normalized >= 1) {
+                    return `rgba(${colors[colors.length - 1].r}, ${colors[colors.length - 1].g}, ${colors[colors.length - 1].b}, 0.7)`;
+                }
+                
+                // 计算在哪个颜色区间
+                const segment = normalized * (colors.length - 1);
+                const index = Math.floor(segment);
+                const t = segment - index;
+                
+                // 线性插值
+                const c1 = colors[index];
+                const c2 = colors[index + 1];
+                const r = Math.round(c1.r + (c2.r - c1.r) * t);
+                const g = Math.round(c1.g + (c2.g - c1.g) * t);
+                const b = Math.round(c1.b + (c2.b - c1.b) * t);
+                
+                return `rgba(${r}, ${g}, ${b}, 0.7)`;
+            }
+            
+            // 创建临时 Canvas 图层用于首次绘制
+            let tempCanvasLayer = null;
+            const CanvasLayer = L.Layer.extend({
+                initialize: function(grid, xlim, ylim, gridWidth, geojson, getColorFunc, onFirstDraw) {
+                    this._grid = grid;
+                    this._xlim = xlim;
+                    this._ylim = ylim;
+                    this._gridWidth = gridWidth;
+                    this._geojson = geojson;
+                    this._getColor = getColorFunc;
+                    this._onFirstDraw = onFirstDraw;
+                    this._firstDrawDone = false;
+                    this._mapReady = false;
+                    this._convertedToImage = false; // 标记是否已转换为图片
+                },
+                
+                onAdd: function(map) {
+                    this._map = map;
+                    
+                    // 创建 Canvas 元素
+                    if (!this._canvas) {
+                        this._canvas = L.DomUtil.create('canvas', 'leaflet-canvas-layer');
+                        this._ctx = this._canvas.getContext('2d');
+                    }
+                    
+                    // 设置 Canvas 样式
+                    const pane = map.getPanes().overlayPane;
+                    pane.appendChild(this._canvas);
+                    
+                    // 设置 Canvas 初始大小和位置
+                    this._reset();
+                    
+                    // 绑定事件
+                    map.on('viewreset', this._reset, this);
+                    map.on('move', this._update, this);
+                    map.on('zoom', this._reset, this);
+                    
+                    // 监听地图移动结束事件，确保地图视图稳定后再保存图片
+                    const self = this;
+                    const moveEndHandler = function() {
+                        if (!self._mapReady) {
+                            self._mapReady = true;
+                            // 地图视图稳定后，标记可以保存图片
+                            setTimeout(() => {
+                                self._update();
+                            }, 500);
+                        }
+                    };
+                    map.once('moveend', moveEndHandler);
+                    map.once('zoomend', moveEndHandler);
+                    
+                    // 初始绘制
+                    this._update();
+                },
+                
+                onRemove: function(map) {
+                    if (this._canvas && this._canvas.parentNode) {
+                        this._canvas.parentNode.removeChild(this._canvas);
+                    }
+                    map.off('viewreset', this._reset, this);
+                    map.off('move', this._update, this);
+                    map.off('zoom', this._reset, this);
+                },
+                
+                _reset: function() {
+                    const size = this._map.getSize();
+                    
+                    // 设置 Canvas 大小
+                    this._canvas.width = size.x;
+                    this._canvas.height = size.y;
+                    this._canvas.style.width = size.x + 'px';
+                    this._canvas.style.height = size.y + 'px';
+                    
+                    // 重新绘制
+                    this._update();
+                },
+                
+                _update: function() {
+                    if (!this._map) return;
+                    
+                    // 如果已经转换为图片，不再更新 Canvas
+                    if (this._convertedToImage) {
+                        return;
+                    }
+                    
+                    const size = this._map.getSize();
+                    const bounds = this._map.getBounds();
+                    
+                    // 更新 Canvas 大小（如果地图大小改变）
+                    if (this._canvas.width !== size.x || this._canvas.height !== size.y) {
+                        this._canvas.width = size.x;
+                        this._canvas.height = size.y;
+                        this._canvas.style.width = size.x + 'px';
+                        this._canvas.style.height = size.y + 'px';
+                    }
+                    
+                    // 清空 Canvas
+                    this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+                    
+                    // 绘制插值网格
+                    const grid = this._grid;
+                    const xlim = this._xlim;
+                    const ylim = this._ylim;
+                    const gridWidth = this._gridWidth;
+                    const geojson = this._geojson;
+                    const getColor = this._getColor;
+                    
+                    for (let i = 0; i < grid.length; i++) {
+                        if (grid[i]) {
+                            for (let j = 0; j < grid[i].length; j++) {
+                                if (grid[i][j] !== undefined && grid[i][j] !== null) {
+                                    // 计算网格单元的实际坐标
+                                    const lon = xlim[0] + i * gridWidth;
+                                    const lat = ylim[0] + j * gridWidth;
+                                    const value = grid[i][j];
+                                    
+                                    // 检查网格中心点是否在中国边界内
+                                    const centerLon = lon + gridWidth / 2;
+                                    const centerLat = lat + gridWidth / 2;
+                                    
+                                    if (pointInGeoJSON([centerLon, centerLat], geojson)) {
+                                        // 首次绘制时，绘制所有网格（不限制可见区域），确保完整覆盖
+                                        // 后续更新时，只绘制可见区域以提高性能
+                                        const shouldDraw = this._firstDrawDone ? 
+                                            // 后续更新：只绘制可见区域
+                                            (lon <= bounds.getEast() && lon + gridWidth >= bounds.getWest() &&
+                                             lat <= bounds.getNorth() && lat + gridWidth >= bounds.getSouth()) :
+                                            // 首次绘制：绘制所有网格
+                                            true;
+                                        
+                                        if (shouldDraw) {
+                                            // 将地理坐标转换为容器坐标
+                                            const point = this._map.latLngToContainerPoint([lat, lon]);
+                                            const point2 = this._map.latLngToContainerPoint([lat + gridWidth, lon + gridWidth]);
+                                            
+                                            const width = point2.x - point.x;
+                                            const height = point2.y - point.y;
+                                            
+                                            // 绘制矩形（首次绘制时不限制 Canvas 边界，确保所有网格都绘制）
+                                            if (this._firstDrawDone) {
+                                                // 后续更新：只绘制可见区域内的网格
+                                                if (point.x + width >= 0 && point.x <= this._canvas.width &&
+                                                    point.y + height >= 0 && point.y <= this._canvas.height) {
+                                                    this._ctx.fillStyle = getColor(value);
+                                                    this._ctx.fillRect(point.x, point.y, width, height);
+                                                }
+                                            } else {
+                                                // 首次绘制：绘制所有网格，即使超出 Canvas 边界
+                                                this._ctx.fillStyle = getColor(value);
+                                                this._ctx.fillRect(point.x, point.y, width, height);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 首次绘制完成后，等待地图视图稳定且所有绘制完成再转换为图片
+                    if (!this._firstDrawDone && this._mapReady) {
+                        this._firstDrawDone = true;
+                        // 使用更长的延迟确保所有绘制完成
+                        setTimeout(() => {
+                            // 再次等待一小段时间，确保浏览器完成所有渲染
+                            requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                    // 标记已转换为图片，停止后续更新
+                                    this._convertedToImage = true;
+                                    
+                                    // 调用回调函数，将 Canvas 转换为图片
+                                    if (this._onFirstDraw) {
+                                        this._onFirstDraw(this._canvas, xlim, ylim, this);
+                                    }
+                                });
+                            });
+                        }, 500);
+                    }
+                }
+            });
+            
+            // 创建临时 Canvas 图层用于首次绘制
+            tempCanvasLayer = new CanvasLayer(grid, xlim, ylim, gridWidth, geojson, getColor, (canvas, xlim, ylim, canvasLayer) => {
+                // 捕获 Canvas 内容并转换为图片
+                console.log('=== 自动生成插值图片 ===');
+                
+                // 将 Canvas 转换为图片
+                const imageDataUrl = canvas.toDataURL('image/png');
+                
+                // 关键：Canvas 的尺寸是基于当前地图视图的，所以边界框也应该使用当前地图视图的边界
+                // 这样才能确保图片与 Canvas 绘制的内容完全匹配
+                const currentBounds = map.getBounds();
+                const imageBounds = [
+                    [currentBounds.getSouth(), currentBounds.getWest()],  // 西南角 [lat, lng]
+                    [currentBounds.getNorth(), currentBounds.getEast()]   // 东北角 [lat, lng]
+                ];
+                
+                console.log('图片尺寸:', canvas.width, 'x', canvas.height);
+                console.log('当前地图视图边界:', currentBounds);
+                console.log('使用的边界范围:', imageBounds);
+                console.log('西南角:', imageBounds[0]);
+                console.log('东北角:', imageBounds[1]);
+                console.log('网格范围 - xlim:', xlim, 'ylim:', ylim);
+                console.log('==================');
+                
+                // 立即移除临时 Canvas 图层，停止所有事件监听
+                if (canvasLayer) {
+                    map.removeLayer(canvasLayer);
+                }
+                if (tempCanvasLayer) {
+                    map.removeLayer(tempCanvasLayer);
+                    tempCanvasLayer = null;
+                }
+                
+                // 使用 ImageOverlay 显示图片，边界框使用当前地图视图的边界
+                interpolationLayer = L.imageOverlay(imageDataUrl, imageBounds, {
+                    opacity: 0.7,
+                    interactive: false
+                });
+                interpolationLayer.addTo(map);
+                
+                console.log('插值图片已自动生成并添加到地图，Canvas 图层已移除');
+            });
+            
+            // 添加临时 Canvas 图层
+            tempCanvasLayer.addTo(map);
+        }
+        
+        // 基于日期生成随机数的种子函数
+        function seededRandom(seed) {
+            let value = seed;
+            return function() {
+                value = (value * 9301 + 49297) % 233280;
+                return value / 233280;
+            };
+        }
+        
+        // 使用日期作为种子生成随机点
+        function generateRandomPointsInChinaWithSeed(geojson, count, seed) {
+            const bounds = getChinaBounds(geojson);
+            const points = [];
+            let attempts = 0;
+            const maxAttempts = count * 10;
+            const random = seededRandom(seed);
+            
+            while (points.length < count && attempts < maxAttempts) {
+                const lon = bounds.minLon + random() * (bounds.maxLon - bounds.minLon);
+                const lat = bounds.minLat + random() * (bounds.maxLat - bounds.minLat);
+                
+                if (pointInGeoJSON([lon, lat], geojson)) {
+                    // 生成随机值，范围 0-100
+                    const value = random() * 100;
+                    points.push([lon, lat, value]);
+                }
+                attempts++;
+            }
+            
+            return points;
+        }
+        
+        // 更新地图插值（基于日期）
+        function updateMapInterpolation(dateString) {
+            if (!map || !chinaBoundary) {
+                console.error('地图或边界数据未初始化');
+                return;
+            }
+            
+            // 使用日期字符串作为种子（将日期转换为数字）
+            const seed = dateString ? dateString.split('-').join('') : Date.now();
+            const numericSeed = parseInt(seed) || Date.now();
+            
+            console.log(`更新地图插值，日期: ${dateString}, 种子: ${numericSeed}`);
+            
+            // 获取边界
+            const bounds = getChinaBounds(chinaBoundary);
+            
+            // 使用日期作为种子生成随机点
+            const randomPoints = generateRandomPointsInChinaWithSeed(chinaBoundary, 1000, numericSeed);
+            console.log(`生成了 ${randomPoints.length} 个随机采样点`);
+            
+            // 执行 Kriging 插值
+            const interpolationResult = performKrigingInterpolation(randomPoints, bounds, 125);
+            
+            if (interpolationResult) {
+                // 绘制插值结果（会自动生成图片）
+                drawInterpolationOnMap(interpolationResult, chinaBoundary);
+            } else {
+                console.error('Kriging 插值失败');
+            }
+        }
+        
+        // 初始化 Leaflet 地图和 Kriging 插值
+        function initLeafletKrigingMap() {
+            // 初始化 Leaflet 地图
+            map = L.map('world-map', {
+                center: [35, 105],
+                zoom: 5,
+                zoomControl: true,
+                attributionControl: false
+            });
+            
+            // 添加深色底图（使用 OpenStreetMap，通过 CSS 滤镜调整颜色）
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: ''
+            }).addTo(map);
+            
+            // 加载中国边界数据
+            fetch('data/guangxi.geojson')
+                .then(response => response.json())
+                .then(geojson => {
+                    chinaBoundary = geojson;
+                    
+                    // 添加中国边界
+                    const chinaLayer = L.geoJSON(geojson, {
+                        style: {
+                            color: '#4fc3f7',
+                            weight: 2,
+                            fillColor: 'transparent',
+                            fillOpacity: 0
+                        }
+                    });
+                    chinaLayer.addTo(map);
+                    
+                    // 创建地图图例控件
+                    createMapLegend();
+                    
+                    // 调整地图视图到中国边界
+                    const bounds = getChinaBounds(geojson);
+                    map.fitBounds([[bounds.minLat, bounds.minLon], [bounds.maxLat, bounds.maxLon]], {
+                        padding: [20, 20]
+                    });
+                    
+                    // 设置默认日期为今天
+                    const today = new Date().toISOString().split('T')[0];
+                    
+                    // 设置日期选择器的默认值
+                    const rainDatePicker = document.getElementById('rain-date-picker');
+                    const temperatureDatePicker = document.getElementById('temperature-date-picker');
+                    
+                    if (rainDatePicker) {
+                        rainDatePicker.value = today;
+                    }
+                    if (temperatureDatePicker) {
+                        temperatureDatePicker.value = today;
+                    }
+                    
+                    // 初始生成插值图（使用今天的日期）
+                    updateMapInterpolation(today);
+                    
+                    // 绑定日期选择器事件
+                    if (rainDatePicker) {
+                        rainDatePicker.addEventListener('change', function(e) {
+                            updateMapInterpolation(e.target.value);
+                        });
+                    }
+                    
+                    if (temperatureDatePicker) {
+                        temperatureDatePicker.addEventListener('change', function(e) {
+                            updateMapInterpolation(e.target.value);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载中国边界数据失败:', error);
+                    document.getElementById('world-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/china.geojson 文件</div>';
+                });
+        }
+        
+        // 延迟加载，确保DOM和库已准备好
+        setTimeout(initLeafletKrigingMap, 100);
+        
+        // 2. 2025年产量情况（饼图）
+        const productionChart = echarts.init(document.getElementById('production-chart'));
+        
+        // 城市颜色配置
+        const productionColors = [
+            '#a45a85', '#93c5fd', '#3b82f6', '#4ade80', '#86efac', 
+            '#fbbf24', '#fb923c', '#f87171', '#ef4444', '#dc2626',
+            '#a855f7', '#c084fc', '#ec4899', '#f472b6'
+        ];
+        
+        // 加载产量数据并初始化图表
+        fetch('data/production.json')
+            .then(response => response.json())
+            .then(data => {
+                // 处理数据：按产量从大到小排序
+                const chartData = data
+                    .map((item, index) => ({
+                        name: item.地名,
+                        value: parseFloat(item['总产（万吨）']),
+                        itemStyle: {
+                            color: productionColors[index % productionColors.length]
+                        }
+                    }))
+                    .sort((a, b) => b.value - a.value);
+                
+                const productionOption = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: '{b}: {c}万吨 ({d}%)'
+                    },
+                    legend: {
+                        orient: 'vertical',
+                        right: 10,
+                        top: 'center',
+                        textStyle: {
+                            color: '#cbd5e1',
+                            fontSize: 11
+                        },
+                        type: 'scroll',
+                        itemWidth: 12,
+                        itemHeight: 8,
+                        itemGap: 5
+                    },
+                    series: [{
+                        name: '产量',
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['40%', '50%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: {
+                            borderRadius: 5,
+                            borderColor: '#0a0e27',
+                            borderWidth: 2
+                        },
+                        label: {
+                            show: true,
+                            formatter: '{b}\n{d}%',
+                            color: '#fff',
+                            fontSize: 10
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: 12,
+                                fontWeight: 'bold'
+                            },
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        data: chartData
+                    }]
+                };
+                
+                productionChart.setOption(productionOption);
+            })
+            .catch(error => {
+                console.error('加载产量数据失败:', error);
+                document.getElementById('production-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/production.json 文件</div>';
+            });
+        
+        // 3. 中国食糖月度进口量
+        const chinaImportChart = echarts.init(document.getElementById('china-import-chart'));
+        const chinaImportOption = {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross'
+                }
+            },
+            legend: {
+                data: ['2024年', '2025年', '近5年平均值(右)'],
+                textStyle: {
+                    color: '#cbd5e1',
+                    fontSize: 11
+                },
+                top: 10
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                top: '15%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                boundaryGap: true,
+                data: ['1月', '3月', '5月', '7月', '9月', '11月'],
+                axisLabel: {
+                    color: '#94a3b8'
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: 'rgba(79, 195, 247, 0.3)'
+                    }
+                }
+            },
+            yAxis: [
+                {
+                    type: 'value',
+                    name: '进口量(万吨)',
+                    position: 'left',
+                    axisLabel: {
+                        color: '#94a3b8'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: 'rgba(79, 195, 247, 0.3)'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: 'rgba(79, 195, 247, 0.1)'
+                        }
+                    }
+                },
+                {
+                    type: 'value',
+                    name: '平均值(万吨)',
+                    position: 'right',
+                    axisLabel: {
+                        color: '#fbbf24'
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#fbbf24'
+                        }
+                    }
+                }
+            ],
+            series: [
+                {
+                    name: '2024年',
+                    type: 'bar',
+                    data: [45, 52, 38, 65, 48, 55],
+                    itemStyle: {
+                        color: '#60a5fa'
+                    }
+                },
+                {
+                    name: '2025年',
+                    type: 'bar',
+                    data: [50, 58, 42, 70, 52, 60],
+                    itemStyle: {
+                        color: '#93c5fd'
+                    }
+                },
+                {
+                    name: '近5年平均值(右)',
+                    type: 'line',
+                    yAxisIndex: 1,
+                    data: [42, 48, 40, 58, 45, 50],
+                    itemStyle: {
+                        color: '#fbbf24'
+                    },
+                    lineStyle: {
+                        width: 2
+                    }
+                }
+            ]
+        };
+        chinaImportChart.setOption(chinaImportOption);
+        
+        // 4. 2025年全年降水统计
+        const rainChart = echarts.init(document.getElementById('rain-chart'));
+        
+        // 城市列表和对应的颜色
+        const cities = ['南宁', '柳州', '桂林', '梧州', '北海', '防城港', '钦州', '贵港 ', '玉林', '百色', '贺州', '河池', '来宾', '崇左 '];
+        const cityColors = [
+            '#60a5fa', '#93c5fd', '#3b82f6', '#4ade80', '#86efac', 
+            '#fbbf24', '#fb923c', '#f87171', '#ef4444', '#dc2626',
+            '#a855f7', '#c084fc', '#ec4899', '#f472b6'
+        ];
+        
+        // 加载降水数据并初始化图表
+        fetch('data/rain.json')
+            .then(response => response.json())
+            .then(data => {
+                // 按月份汇总每个城市的降水量
+                const monthlyData = {};
+                cities.forEach(city => {
+                    monthlyData[city] = new Array(12).fill(0);
+                });
+                
+                // 遍历数据，按月份累加
+                data.forEach(record => {
+                    const month = record.月份 - 1; // 月份从0开始索引
+                    cities.forEach(city => {
+                        const cityKey = city.trim();
+                        if (record[city] !== undefined) {
+                            monthlyData[city][month] += parseFloat(record[city] || 0);
+                        }
+                    });
+                });
+                
+                // 构建系列数据
+                const series = cities.map((city, index) => ({
+                    name: city.trim(),
+                    type: 'line',
+                    data: monthlyData[city],
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 4,
+                    itemStyle: {
+                        color: cityColors[index]
+                    },
+                    lineStyle: {
+                        width: 2,
+                        color: cityColors[index]
+                    },
+                    emphasis: {
+                        focus: 'series',
+                        lineStyle: {
+                            width: 3
+                        }
+                    }
+                }));
+                
+                const rainOption = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross'
+                        },
+                        formatter: function(params) {
+                            let result = params[0].axisValue + '月<br/>';
+                            params.forEach(param => {
+                                result += param.marker + param.seriesName + ': ' + param.value.toFixed(1) + 'mm<br/>';
+                            });
+                            return result;
+                        }
+                    },
+                    legend: {
+                        data: cities.map(c => c.trim()),
+                        textStyle: {
+                            color: '#cbd5e1',
+                            fontSize: 10
+                        },
+                        top: 10,
+                        right: 10,
+                        type: 'scroll',
+                        orient: 'vertical',
+                        itemWidth: 12,
+                        itemHeight: 8,
+                        itemGap: 5
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '15%',
+                        bottom: '3%',
+                        top: '15%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '降水量(mm)',
+                        nameTextStyle: {
+                            color: '#94a3b8',
+                            fontSize: 12
+                        },
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.1)'
+                            }
+                        }
+                    },
+                    series: series
+                };
+                
+                rainChart.setOption(rainOption);
+            })
+            .catch(error => {
+                console.error('加载降水数据失败:', error);
+                document.getElementById('rain-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/rain.json 文件</div>';
+            });
+        
+        // 5. 主要国家食糖产糖量占比
+        // const productionShareChart = echarts.init(document.getElementById('production-share-chart'));
+        // const productionShareOption = {
+        //     backgroundColor: 'transparent',
+        //     tooltip: {
+        //         trigger: 'item',
+        //         formatter: '{b}: {c}% ({d}%)'
+        //     },
+        //     legend: {
+        //         orient: 'vertical',
+        //         right: 10,
+        //         top: 'center',
+        //         textStyle: {
+        //             color: '#cbd5e1',
+        //             fontSize: 11
+        //         }
+        //     },
+        //     series: [{
+        //         name: '产糖量占比',
+        //         type: 'pie',
+        //         radius: ['40%', '70%'],
+        //         center: ['40%', '50%'],
+        //         avoidLabelOverlap: false,
+        //         itemStyle: {
+        //             borderRadius: 5,
+        //             borderColor: '#0a0e27',
+        //             borderWidth: 2
+        //         },
+        //         label: {
+        //             show: true,
+        //             formatter: '{b}\n{d}%',
+        //             color: '#fff',
+        //             fontSize: 11
+        //         },
+        //         emphasis: {
+        //             label: {
+        //                 show: true,
+        //                 fontSize: 13,
+        //                 fontWeight: 'bold'
+        //             }
+        //         },
+        //         data: [
+        //             {value: 45.6, name: '巴西', itemStyle: {color: '#1e3a8a'}},
+        //             {value: 30.3, name: '印度', itemStyle: {color: '#3b82f6'}},
+        //             {value: 12.2, name: '中国', itemStyle: {color: '#60a5fa'}},
+        //             {value: 11.9, name: '泰国', itemStyle: {color: '#4ade80'}}
+        //         ]
+        //     }]
+        // };
+        // productionShareChart.setOption(productionShareOption);
+        
+        // 6. 主要出口国食糖出口量占比
+        let exportShareChart = null;
+        const exportShareElement = document.getElementById('export-share-chart');
+        if (exportShareElement) {
+            exportShareChart = echarts.init(exportShareElement);
+            const exportShareOption = {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}: {c}% ({d}%)'
+            },
+            legend: {
+                orient: 'vertical',
+                right: 10,
+                top: 'center',
+                textStyle: {
+                    color: '#cbd5e1',
+                    fontSize: 10
+                }
+            },
+            series: [{
+                name: '出口量占比',
+                type: 'pie',
+                radius: ['40%', '70%'],
+                center: ['40%', '50%'],
+                avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 5,
+                    borderColor: '#0a0e27',
+                    borderWidth: 2
+                },
+                label: {
+                    show: true,
+                    formatter: '{b}\n{d}%',
+                    color: '#fff',
+                    fontSize: 10
+                },
+                emphasis: {
+                    label: {
+                        show: true,
+                        fontSize: 12,
+                        fontWeight: 'bold'
+                    }
+                },
+                data: [
+                    {value: 59.0, name: '巴西', itemStyle: {color: '#1e3a8a'}},
+                    {value: 13.3, name: '泰国', itemStyle: {color: '#3b82f6'}},
+                    {value: 6.0, name: '澳大利亚', itemStyle: {color: '#60a5fa'}},
+                    {value: 5.1, name: '印度', itemStyle: {color: '#4ade80'}},
+                    {value: 4.0, name: '法国', itemStyle: {color: '#86efac'}},
+                    {value: 3.0, name: '德国', itemStyle: {color: '#fbbf24'}},
+                    {value: 2.8, name: '阿联酋', itemStyle: {color: '#fb923c'}},
+                    {value: 2.5, name: '危地马拉', itemStyle: {color: '#f87171'}},
+                    {value: 2.5, name: '巴基斯坦', itemStyle: {color: '#ef4444'}},
+                    {value: 1.8, name: '墨西哥', itemStyle: {color: '#dc2626'}}
+                ]
+            }]
+            };
+            exportShareChart.setOption(exportShareOption);
+        }
+        
+        // 7. 2025年气温变化统计
+        const temperatureChart = echarts.init(document.getElementById('temperature-chart'));
+        
+        // 城市列表和对应的颜色（注意：数据中"白色"实际是"百色"）
+        const tempCities = ['南宁', '柳州', '桂林', '梧州', '北海', '防城港', '钦州', '贵港', '玉林', '白色', '贺州', '河池', '来宾', '崇左'];
+        const tempCityNames = ['南宁', '柳州', '桂林', '梧州', '北海', '防城港', '钦州', '贵港', '玉林', '百色', '贺州', '河池', '来宾', '崇左'];
+        const tempCityColors = [
+            '#a45a85', '#93c5fd', '#3b82f6', '#4ade80', '#86efac', 
+            '#fbbf24', '#fb923c', '#f87171', '#ef4444', '#dc2626',
+            '#a855f7', '#c084fc', '#ec4899', '#f472b6'
+        ];
+        
+        // 加载气温数据并初始化图表
+        fetch('data/temperature.json')
+            .then(response => response.json())
+            .then(data => {
+                // 按月份计算每个城市的平均气温
+                const monthlyAvgData = {};
+                
+                tempCities.forEach(city => {
+                    monthlyAvgData[city] = new Array(12).fill(0);
+                    const dayCount = new Array(12).fill(0);
+                    
+                    // 遍历数据，按月份累加
+                    data.forEach(record => {
+                        const month = record.月份 - 1; // 月份从0开始索引
+                        if (record[city] !== undefined && record[city] !== null) {
+                            const temp = parseFloat(record[city] || 0);
+                            monthlyAvgData[city][month] += temp;
+                            dayCount[month]++;
+                        }
+                    });
+                    
+                    // 计算平均值
+                    for (let i = 0; i < 12; i++) {
+                        if (dayCount[i] > 0) {
+                            monthlyAvgData[city][i] = monthlyAvgData[city][i] / dayCount[i];
+                        }
+                    }
+                });
+                
+                // 构建系列数据 - 只使用柱状图
+                const series = tempCities.map((city, index) => ({
+                    name: tempCityNames[index],
+                    type: 'bar',
+                    data: monthlyAvgData[city],
+                    itemStyle: {
+                        color: tempCityColors[index],
+                        borderRadius: [4, 4, 0, 0]
+                    },
+                    emphasis: {
+                        focus: 'series',
+                        itemStyle: {
+                            color: tempCityColors[index],
+                            shadowBlur: 10,
+                            shadowColor: tempCityColors[index]
+                        }
+                    },
+                    label: {
+                        show: false
+                    }
+                }));
+                
+                // 设置默认选中的城市（只显示第一个城市）
+                const selectedCities = {};
+                tempCityNames.forEach((cityName, index) => {
+                    selectedCities[cityName] = index === 0; // 只有第一个城市默认选中
+                });
+                
+                const temperatureOption = {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function(params) {
+                            let result = params[0].axisValue + '月<br/>';
+                            params.forEach(param => {
+                                result += param.marker + param.seriesName + ': ' + param.value.toFixed(1) + '°C<br/>';
+                            });
+                            return result;
+                        }
+                    },
+                    legend: {
+                        data: tempCityNames,
+                        selected: selectedCities, // 设置默认选中状态
+                        textStyle: {
+                            color: '#cbd5e1',
+                            fontSize: 10
+                        },
+                        top: 10,
+                        right: 10,
+                        type: 'scroll',
+                        orient: 'vertical',
+                        itemWidth: 12,
+                        itemHeight: 8,
+                        itemGap: 5
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '15%',
+                        bottom: '3%',
+                        top: '15%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: true,
+                        data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '平均气温(°C)',
+                        nameTextStyle: {
+                            color: '#94a3b8',
+                            fontSize: 12
+                        },
+                        axisLabel: {
+                            color: '#94a3b8',
+                            fontSize: 11
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.3)'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: 'rgba(79, 195, 247, 0.1)'
+                            }
+                        }
+                    },
+                    series: series
+                };
+                
+                temperatureChart.setOption(temperatureOption);
+            })
+            .catch(error => {
+                console.error('加载气温数据失败:', error);
+                document.getElementById('temperature-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/temperature.json 文件</div>';
+            });
+        
+        // 8. 地区综合统计表
+        fetch('data/table.json')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('region-table-body');
+                if (!tbody) return;
+                
+                // 按总产（万吨）从大到小排序
+                const sortedData = data.sort((a, b) => {
+                    const aValue = parseFloat(a['总产（万吨）'].trim() || 0);
+                    const bValue = parseFloat(b['总产（万吨）'].trim() || 0);
+                    return bValue - aValue;
+                });
+                
+                // 清空现有内容
+                tbody.innerHTML = '';
+                
+                // 填充表格数据
+                sortedData.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.地名}</td>
+                        <td>${item.数量.toLocaleString()}</td>
+                        <td>${parseFloat(item.面积).toFixed(6)}</td>
+                        <td>${parseFloat(item.最小值).toFixed(2)}</td>
+                        <td>${parseFloat(item.最大值).toFixed(2)}</td>
+                        <td>${parseFloat(item.平均值).toFixed(2)}</td>
+                        <td>${parseFloat(item.STD).toFixed(2)}</td>
+                        <td>${item['总产（万吨）'].trim()}</td>
+                        <td>${item['实测总产（万吨）'].trim()}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('加载表格数据失败:', error);
+                const tbody = document.getElementById('region-table-body');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#f87171;">数据加载失败，请检查 data/table.json 文件</td></tr>';
+                }
+            });
+        
+        // 响应式调整
+        window.addEventListener('resize', function() {
+            areaChart.resize();
+            if (map) {
+                map.invalidateSize();
+            }
+            productionChart.resize();
+            chinaImportChart.resize();
+            rainChart.resize();
+            if (exportShareChart) {
+                exportShareChart.resize();
+            }
+            temperatureChart.resize();
+        });
+    </script>
+</body>
+</html>

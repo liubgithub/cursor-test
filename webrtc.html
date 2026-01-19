@@ -1,0 +1,181 @@
+<thought>
+**Contemplating WebRTC Integration**
+
+I've been wrestling with the architecture. My focus is on cleanly injecting the HTML and JavaScript into `webrtc.html`. Specifically, I am determining the best way to interface with a third-party speech-to-text library and bypass the browser's native speech recognition to meet requirements. I'm now outlining the necessary event listeners for real-time transcription.
+
+
+**Structuring UI Components**
+
+I'm currently sketching the HTML structure; a container for the audio stream, the transcription display area, and control buttons are essential. The JavaScript will focus on handling microphone access via `getUserMedia`, then the core logic will center around sending the audio data packets and receiving transcription. This involves detailed plans for packaging audio chunks. I'm evaluating the best approach for error handling during streaming and transcription.
+
+
+**Developing Core Implementation**
+
+I'm now breaking down the process to its finest steps. First, I need the foundational HTML with a title, start/stop control, and result display. JavaScript will then grab those elements, setting event listeners for a start/stop button. Crucially, the logic to fetch the audio stream using `getUserMedia` will be next, followed by the `MediaRecorder` instantiation. The most challenging part: handling the audio chunks from `ondataavailable`, which will simulate the transmission of audio data.
+
+
+**Mapping Out the Components**
+
+I'm now moving toward the implementation plan. I'll start by defining the HTML with a title, start/stop button, and a results display area, similar to the audio example, then move to the Javascript to create the `getUserMedia` flow. The goal is to handle the audio chunks from `ondataavailable` and indicate where the third-party integration will take place, and I'll add comments to show this. Finally, simulating the result display with placeholder text is crucial.
+
+
+
+</thought><style>
+    body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background-color: #f4f4f4;
+    }
+    #controls {
+        margin-bottom: 20px;
+    }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+    #result {
+        width: 80%;
+        min-height: 150px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        white-space: pre-wrap; /* Preserve line breaks */
+        word-wrap: break-word; /* Break long words */
+    }
+</style>
+
+<h1>WebRTC 语音转文字 (不使用 SpeechRecognition)</h1>
+
+<div id="controls">
+    <button id="startButton">开始录音</button>
+</div>
+
+<div id="result">
+    <p>点击“开始录音”按钮并说话...</p>
+</div>
+
+<script>
+    const startButton = document.getElementById('startButton');
+    const resultDiv = document.getElementById('result');
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let mediaStream;
+    let isRecording = false;
+
+    // Check for necessary WebRTC APIs
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+        resultDiv.innerHTML = '<p>抱歉，您的浏览器不支持 WebRTC 或 MediaRecorder API。</p>';
+        startButton.disabled = true;
+    } else {
+        startButton.addEventListener('click', async () => {
+            if (isRecording) {
+                // Stop recording
+                mediaRecorder.stop();
+                // Stop the microphone stream tracks
+                mediaStream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                startButton.textContent = '开始录音';
+                startButton.style.backgroundColor = '#007bff'; // Blue color for start
+                resultDiv.innerHTML = '<p>录音停止，正在处理...</p>'; // Indicate processing
+            } else {
+                // Start recording
+                audioChunks = []; // Clear previous chunks
+                resultDiv.innerHTML = '<p>正在获取麦克风权限...</p>';
+
+                try {
+                    // Get microphone access
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                    // Create MediaRecorder instance
+                    mediaRecorder = new MediaRecorder(mediaStream);
+
+                    // Event handler for when data is available
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                        // In a real application, you might send chunks to the server here
+                        // for real-time processing by the third-party library.
+                        // Example: sendAudioChunk(event.data);
+                        console.log('Audio data available:', event.data);
+                    };
+
+                    // Event handler for when recording stops
+                    mediaRecorder.onstop = async () => {
+                        // Combine audio chunks into a single Blob
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' }); // Or appropriate type
+
+                        // --- Integration with Third-Party STT Library/Service ---
+                        // This is where you would send the audioBlob to your chosen
+                        // third-party speech-to-text service (e.g., via Fetch API, WebSocket).
+                        // The service would process the audio and return the text.
+                        // Replace the following lines with your actual API call.
+                        console.log('Recording stopped. Audio Blob created:', audioBlob);
+                        resultDiv.innerHTML = '<p>录音完成，发送音频到第三方服务...</p>';
+
+                        // Simulate sending and receiving text (replace with actual API call)
+                        try {
+                            // Example: const response = await fetch('/your-stt-api-endpoint', { method: 'POST', body: audioBlob });
+                            // Example: const textResult = await response.text(); // Or response.json()
+
+                            // --- SIMULATED RESULT ---
+                            // In a real scenario, the textResult would come from the API response.
+                            const simulatedText = "这是一段模拟的语音转文字结果。请替换为实际的第三方服务调用。";
+                            resultDiv.innerHTML = '<p>' + simulatedText + '</p>';
+                            // --- END SIMULATED RESULT ---
+
+                        } catch (error) {
+                            console.error('Error sending audio to STT service:', error);
+                            resultDiv.innerHTML = '<p>发送音频到服务时发生错误。</p>';
+                        }
+                        // --- End Third-Party Integration Section ---
+
+                        audioChunks = []; // Clear chunks after processing
+                    };
+
+                    // Event handler for errors
+                    mediaRecorder.onerror = (event) => {
+                        console.error('MediaRecorder error:', event.error);
+                        resultDiv.innerHTML = '<p>录音发生错误: ' + event.error.name + '</p>';
+                        isRecording = false;
+                        startButton.textContent = '开始录音';
+                        startButton.style.backgroundColor = '#007bff';
+                        // Ensure tracks are stopped on error
+                        if (mediaStream) {
+                             mediaStream.getTracks().forEach(track => track.stop());
+                        }
+                    };
+
+                    // Start recording
+                    mediaRecorder.start();
+                    isRecording = true;
+                    startButton.textContent = '停止录音';
+                    startButton.style.backgroundColor = '#dc3545'; // Red color for stop
+                    resultDiv.innerHTML = '<p>正在聆听...</p>';
+
+                } catch (err) {
+                    console.error('Error accessing microphone:', err);
+                    resultDiv.innerHTML = '<p>无法访问麦克风。请检查权限设置。</p>';
+                    isRecording = false;
+                    startButton.textContent = '开始录音';
+                    startButton.style.backgroundColor = '#007bff';
+                }
+            }
+        });
+    }
+</script>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>复杂平面Mesh侧面几何体测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        select {
+            padding: 5px;
+            margin: 5px;
+            border-radius: 4px;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info">
+            <h3>复杂平面Mesh侧面几何体测试</h3>
+            <p>蓝色: mesh1 (原始平面)</p>
+            <p>红色: mesh2 (克隆+平移平面)</p>
+            <p>绿色: 生成的侧面几何体</p>
+            <p><small>测试各种复杂平面形状</small></p>
+        </div>
+        
+        <div id="controls">
+            <h4>控制面板</h4>
+            <div>
+                <label>形状选择: </label>
+                <select id="shapeSelect">
+                    <option value="rectangle">矩形</option>
+                    <option value="lshape">L形状</option>
+                    <option value="triangle">三角形</option>
+                    <option value="pentagon">五边形</option>
+                    <option value="star">星形</option>
+                </select>
+            </div>
+            <div>
+                <label>平移距离: </label>
+                <input type="range" id="offsetSlider" min="1" max="10" value="3" step="0.5">
+                <span id="offsetValue">3</span>
+            </div>
+            <div>
+                <button id="generateBtn">生成侧面</button>
+                <button id="debugBtn">调试信息</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./lib/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        class ComplexMeshSideGenerator {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.mesh1 = null;
+                this.mesh2 = null;
+                this.sideMesh = null;
+                this.offset = 3;
+                this.currentShape = 'rectangle';
+                
+                this.init();
+                this.setupControls();
+                this.animate();
+            }
+
+            init() {
+                // 设置渲染器
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0x222222);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('container').appendChild(this.renderer.domElement);
+
+                // 设置相机
+                this.camera.position.set(8, 8, 8);
+                this.camera.lookAt(0, 0, 0);
+
+                // 添加光源
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 10, 5);
+                directionalLight.castShadow = true;
+                this.scene.add(directionalLight);
+
+                // 创建原始mesh
+                this.createOriginalMesh();
+                
+                // 添加网格辅助
+                const gridHelper = new THREE.GridHelper(20, 20);
+                this.scene.add(gridHelper);
+            }
+
+            createOriginalMesh() {
+                const geometry = this.createShapeGeometry(this.currentShape);
+                
+                // 创建mesh1
+                const material1 = new THREE.MeshLambertMaterial({ 
+                    color: 0x0066cc,
+                    side: THREE.DoubleSide
+                });
+                this.mesh1 = new THREE.Mesh(geometry, material1);
+                this.mesh1.castShadow = true;
+                this.mesh1.receiveShadow = true;
+                this.scene.add(this.mesh1);
+
+                // 创建mesh2（克隆并平移）
+                this.createClonedMesh();
+                
+                // 自动生成侧面
+                this.generateSideGeometry();
+            }
+
+            createShapeGeometry(shapeType) {
+                const geometry = new THREE.BufferGeometry();
+                let vertices, indices;
+
+                switch(shapeType) {
+                    case 'rectangle':
+                        vertices = new Float32Array([
+                            -1, 0, -1,    // 0
+                             1, 0, -1,    // 1
+                             1, 0,  1,    // 2
+                            -1, 0,  1     // 3
+                        ]);
+                        indices = [0, 1, 2, 0, 2, 3];
+                        break;
+
+                    case 'lshape':
+                        vertices = new Float32Array([
+                            -2, 0, -1,    // 0
+                             2, 0, -1,    // 1
+                             2, 0,  1,    // 2
+                            -1, 0,  1,    // 3
+                            -1, 0,  2,    // 4
+                            -2, 0,  2     // 5
+                        ]);
+                        indices = [
+                            0, 1, 2, 0, 2, 3,
+                            3, 4, 5, 3, 5, 0
+                        ];
+                        break;
+
+                    case 'triangle':
+                        vertices = new Float32Array([
+                             0, 0, -1.5,  // 0
+                             1.5, 0, 1.5, // 1
+                            -1.5, 0, 1.5  // 2
+                        ]);
+                        indices = [0, 1, 2];
+                        break;
+
+                    case 'pentagon':
+                        vertices = new Float32Array([
+                             0, 0, -1.5,     // 0
+                             1.2, 0, -0.5,   // 1
+                             0.7, 0, 1.2,    // 2
+                            -0.7, 0, 1.2,    // 3
+                            -1.2, 0, -0.5    // 4
+                        ]);
+                        indices = [
+                            0, 1, 2, 0, 2, 3, 0, 3, 4
+                        ];
+                        break;
+
+                    case 'star':
+                        vertices = new Float32Array([
+                             0, 0, -1.5,     // 0 外点
+                             0.5, 0, -0.5,   // 1 内点
+                             1.5, 0, -0.5,   // 2 外点
+                             0.8, 0, 0.3,    // 3 内点
+                             1.2, 0, 1.2,    // 4 外点
+                             0, 0, 0.8,      // 5 内点
+                            -1.2, 0, 1.2,    // 6 外点
+                            -0.8, 0, 0.3,    // 7 内点
+                            -1.5, 0, -0.5,   // 8 外点
+                            -0.5, 0, -0.5    // 9 内点
+                        ]);
+                        indices = [
+                            0, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 8, 8, 9, 0,
+                            0, 2, 4, 4, 6, 8, 8, 0, 2
+                        ];
+                        break;
+                }
+
+                geometry.setIndex(indices);
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.computeVertexNormals();
+
+                return geometry;
+            }
+
+            createClonedMesh() {
+                if (this.mesh2) {
+                    this.scene.remove(this.mesh2);
+                }
+
+                const material2 = new THREE.MeshLambertMaterial({ 
+                    color: 0xcc0000,
+                    side: THREE.DoubleSide
+                });
+                this.mesh2 = this.mesh1.clone();
+                this.mesh2.material = material2;
+                this.mesh2.position.y = this.offset;
+                this.scene.add(this.mesh2);
+            }
+
+            generateSideGeometry() {
+                if (this.sideMesh) {
+                    this.scene.remove(this.sideMesh);
+                }
+
+                // 获取mesh1和mesh2的世界坐标
+                const mesh1Vertices = this.getWorldVertices(this.mesh1);
+                const mesh2Vertices = this.getWorldVertices(this.mesh2);
+
+                console.log('Mesh1 world vertices:', mesh1Vertices);
+                console.log('Mesh2 world vertices:', mesh2Vertices);
+
+                const sideVertices = [];
+                const sideIndices = [];
+
+                // 简化算法：直接按顺序连接对应的顶点
+                const vertexCount = mesh1Vertices.length;
+                
+                // 添加所有顶点
+                for (let i = 0; i < vertexCount; i++) {
+                    // mesh1的顶点
+                    sideVertices.push(mesh1Vertices[i].x, mesh1Vertices[i].y, mesh1Vertices[i].z);
+                    // mesh2的顶点
+                    sideVertices.push(mesh2Vertices[i].x, mesh2Vertices[i].y, mesh2Vertices[i].z);
+                }
+
+                // 创建连接面
+                for (let i = 0; i < vertexCount; i++) {
+                    const nextI = (i + 1) % vertexCount;
+                    
+                    // 当前边的四个顶点索引
+                    const p1_1 = i * 2;           // mesh1当前顶点
+                    const p1_2 = nextI * 2;       // mesh1下一个顶点
+                    const p2_1 = i * 2 + 1;       // mesh2当前顶点
+                    const p2_2 = nextI * 2 + 1;   // mesh2下一个顶点
+
+                    // 创建四边形面（两个三角形）
+                    sideIndices.push(p1_1, p2_1, p1_2);
+                    sideIndices.push(p1_2, p2_1, p2_2);
+                }
+
+                console.log('Side vertices:', sideVertices);
+                console.log('Side indices:', sideIndices);
+
+                if (sideVertices.length === 0) {
+                    console.warn('无法生成侧面几何体');
+                    return;
+                }
+
+                const sideGeometry = new THREE.BufferGeometry();
+                sideGeometry.setAttribute('position', new THREE.Float32BufferAttribute(sideVertices, 3));
+                sideGeometry.setIndex(sideIndices);
+                sideGeometry.computeVertexNormals();
+
+                const sideMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x00cc00,
+                    side: THREE.DoubleSide
+                });
+                this.sideMesh = new THREE.Mesh(sideGeometry, sideMaterial);
+                this.sideMesh.castShadow = true;
+                this.sideMesh.receiveShadow = true;
+                this.scene.add(this.sideMesh);
+                
+                console.log('Side mesh created and added to scene');
+            }
+
+            getWorldVertices(mesh) {
+                const vertices = [];
+                const geometry = mesh.geometry;
+                const positionAttribute = geometry.attributes.position;
+                
+                // 创建临时向量用于变换
+                const tempVector = new THREE.Vector3();
+                
+                for (let i = 0; i < positionAttribute.count; i++) {
+                    // 获取局部坐标
+                    tempVector.fromBufferAttribute(positionAttribute, i);
+                    
+                    // 转换为世界坐标
+                    tempVector.applyMatrix4(mesh.matrixWorld);
+                    
+                    vertices.push({
+                        x: tempVector.x,
+                        y: tempVector.y,
+                        z: tempVector.z
+                    });
+                }
+                
+                return vertices;
+            }
+
+            setupControls() {
+                const shapeSelect = document.getElementById('shapeSelect');
+                const offsetSlider = document.getElementById('offsetSlider');
+                const offsetValue = document.getElementById('offsetValue');
+                const generateBtn = document.getElementById('generateBtn');
+                const debugBtn = document.getElementById('debugBtn');
+
+                shapeSelect.addEventListener('change', (e) => {
+                    this.currentShape = e.target.value;
+                    this.createOriginalMesh();
+                });
+
+                offsetSlider.addEventListener('input', (e) => {
+                    this.offset = parseFloat(e.target.value);
+                    offsetValue.textContent = this.offset;
+                    this.createClonedMesh();
+                    this.generateSideGeometry();
+                });
+
+                generateBtn.addEventListener('click', () => {
+                    this.generateSideGeometry();
+                });
+
+                debugBtn.addEventListener('click', () => {
+                    console.log('=== 调试信息 ===');
+                    console.log('Current shape:', this.currentShape);
+                    console.log('Mesh1:', this.mesh1);
+                    console.log('Mesh2:', this.mesh2);
+                    console.log('SideMesh:', this.sideMesh);
+                    console.log('Offset:', this.offset);
+                });
+
+                // 添加鼠标控制
+                let mouseX = 0, mouseY = 0;
+                let isMouseDown = false;
+
+                this.renderer.domElement.addEventListener('mousedown', (e) => {
+                    isMouseDown = true;
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                });
+
+                this.renderer.domElement.addEventListener('mouseup', () => {
+                    isMouseDown = false;
+                });
+
+                this.renderer.domElement.addEventListener('mousemove', (e) => {
+                    if (isMouseDown) {
+                        const deltaX = e.clientX - mouseX;
+                        const deltaY = e.clientY - mouseY;
+                        
+                        this.camera.position.x += deltaX * 0.01;
+                        this.camera.position.y -= deltaY * 0.01;
+                        this.camera.lookAt(0, 0, 0);
+                        
+                        mouseX = e.clientX;
+                        mouseY = e.clientY;
+                    }
+                });
+
+                // 添加滚轮缩放
+                this.renderer.domElement.addEventListener('wheel', (e) => {
+                    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+                    this.camera.position.multiplyScalar(scale);
+                });
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // 初始化应用
+        new ComplexMeshSideGenerator();
+    </script>
+</body>
+</html>
+

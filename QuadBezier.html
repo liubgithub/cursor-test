@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maptalks 贝塞尔曲线示例</title>
+    <link rel="stylesheet" href="https://unpkg.com/maptalks/dist/maptalks.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .controls button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px 12px;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .controls button:hover {
+            background: #005a87;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="info-panel">
+        <h3>贝塞尔曲线说明</h3>
+        <p><strong>起点:</strong> 北京天安门</p>
+        <p><strong>控制点:</strong> 天津</p>
+        <p><strong>终点:</strong> 上海</p>
+        <p>这条二次贝塞尔曲线展示了从北京到上海的平滑路径。</p>
+    </div>
+    
+    <div class="controls">
+        <button onclick="toggleCurve()">显示/隐藏曲线</button>
+        <button onclick="changeCurveStyle()">改变样式</button>
+        <button onclick="addAnimation()">添加动画</button>
+        <button onclick="generateInterpolatedLine()">生成插值线段</button>
+        <button onclick="clearInterpolatedLine()">清除插值线段</button>
+    </div>
+
+    <script src="https://unpkg.com/maptalks/dist/maptalks.js"></script>
+    <script>
+        // 创建地图
+        const map = new maptalks.Map('map', {
+            center: [120.54, 30.06], // 北京坐标
+            zoom: 15,
+            pitch: 0,
+            bearing: 0,
+            centerCross: true,
+            doubleClickZoom: false,
+            spatialReference: {
+                projection: 'EPSG:3857'
+            },
+            baseLayer: new maptalks.TileLayer('base', {
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                subdomains: ['a', 'b', 'c', 'd'],
+                attribution: '&copy; <a href="http://osm.org">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/">CARTO</a>'
+            })
+        });
+        new maptalks.WMSTileLayer("cun", {
+            urlTemplate: 'http://39.170.97.129:6080/arcgis/services/昌王庙1118/昌王庙正射1118/MapServer/WmsServer',
+            crs: 'EPSG:3857',
+            layers: "0",
+            styles: "",
+            version: "1.3.0",
+            format: "image/png",
+            transparent: true
+        }).addTo(map);
+        map.on('click', e => {
+            console.log(e.coordinate);
+        })
+        // 定义坐标点
+        const startPoint = [116.3974, 39.9093]; // 北京天安门
+        const controlPoint = [120.77140132661634, 36.6576124133826]; // 天津
+        const endPoint = [121.4737, 31.2304]; // 上海
+
+        // 创建矢量图层来容纳所有几何对象
+        const vectorLayer = new maptalks.VectorLayer('vector', {
+            enableAltitude: false
+        }).addTo(map);
+
+        // 创建起点标记
+        const startMarker = new maptalks.Marker(startPoint, {
+            symbol: {
+                markerType: 'ellipse',
+                markerFill: '#ff4444',
+                markerFillOpacity: 0.8,
+                markerLineWidth: 2,
+                markerLineColor: '#ffffff',
+                markerWidth: 20,
+                markerHeight: 20
+            }
+        });
+
+        // 创建控制点标记
+        const controlMarker = new maptalks.Marker(controlPoint, {
+            symbol: {
+                markerType: 'ellipse',
+                markerFill: '#ffaa00',
+                markerFillOpacity: 0.8,
+                markerLineWidth: 2,
+                markerLineColor: '#ffffff',
+                markerWidth: 15,
+                markerHeight: 15
+            }
+        });
+
+        // 创建终点标记
+        const endMarker = new maptalks.Marker(endPoint, {
+            symbol: {
+                markerType: 'ellipse',
+                markerFill: '#44ff44',
+                markerFillOpacity: 0.8,
+                markerLineWidth: 2,
+                markerLineColor: '#ffffff',
+                markerWidth: 20,
+                markerHeight: 20
+            }
+        });
+
+        // 创建贝塞尔曲线
+        const bezierCurve = new maptalks.QuadBezierCurve([startPoint, controlPoint, endPoint], {
+            symbol: {
+                lineColor: '#1890ff',
+                lineWidth: 4,
+                lineOpacity: 0.8,
+                lineDasharray: null,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }
+        });
+
+        // 添加标签
+        const startLabel = new maptalks.Label('北京', startPoint, {
+            textSymbol: {
+                textFaceName: 'sans-serif',
+                textSize: 14,
+                textFill: '#333333',
+                textHaloFill: '#ffffff',
+                textHaloRadius: 2
+            }
+        });
+
+        const controlLabel = new maptalks.Label('天津', controlPoint, {
+            textSymbol: {
+                textFaceName: 'sans-serif',
+                textSize: 12,
+                textFill: '#666666',
+                textHaloFill: '#ffffff',
+                textHaloRadius: 2
+            }
+        });
+
+        const endLabel = new maptalks.Label('上海', endPoint, {
+            textSymbol: {
+                textFaceName: 'sans-serif',
+                textSize: 14,
+                textFill: '#333333',
+                textHaloFill: '#ffffff',
+                textHaloRadius: 2
+            }
+        });
+
+        // 将所有几何对象添加到矢量图层
+        vectorLayer.addGeometry([startMarker, controlMarker, endMarker, bezierCurve, startLabel, controlLabel, endLabel]);
+
+        // 存储插值线段的引用
+        let interpolatedLines = [];
+
+        // 计算贝塞尔曲线上的点的函数
+        function getBezierPoint(t) {
+            const x = Math.pow(1 - t, 2) * startPoint[0] + 
+                     2 * (1 - t) * t * controlPoint[0] + 
+                     Math.pow(t, 2) * endPoint[0];
+            const y = Math.pow(1 - t, 2) * startPoint[1] + 
+                     2 * (1 - t) * t * controlPoint[1] + 
+                     Math.pow(t, 2) * endPoint[1];
+            return [x, y];
+        }
+
+        // 控制函数
+        function toggleCurve() {
+            if (bezierCurve.isVisible()) {
+                bezierCurve.hide();
+            } else {
+                bezierCurve.show();
+            }
+        }
+
+        function changeCurveStyle() {
+            const styles = [
+                { lineColor: '#1890ff', lineWidth: 4 },
+                { lineColor: '#ff4444', lineWidth: 6 },
+                { lineColor: '#44ff44', lineWidth: 3 },
+                { lineColor: '#ffaa00', lineWidth: 5, lineDasharray: [10, 5] },
+                { lineColor: '#9933ff', lineWidth: 4, lineDasharray: [5, 5] }
+            ];
+            
+            const currentStyle = bezierCurve.getSymbol();
+            const currentIndex = styles.findIndex(style => 
+                style.lineColor === currentStyle.lineColor && 
+                style.lineWidth === currentStyle.lineWidth
+            );
+            
+            const nextIndex = (currentIndex + 1) % styles.length;
+            bezierCurve.setSymbol(styles[nextIndex]);
+        }
+
+        function addAnimation() {
+            // 创建动画点
+            const animationPoint = new maptalks.Marker(startPoint, {
+                symbol: {
+                    markerType: 'ellipse',
+                    markerFill: '#ff0000',
+                    markerFillOpacity: 0.9,
+                    markerLineWidth: 2,
+                    markerLineColor: '#ffffff',
+                    markerWidth: 12,
+                    markerHeight: 12
+                }
+            });
+
+            // 将动画点添加到图层
+            vectorLayer.addGeometry(animationPoint);
+
+            // 执行动画
+            let t = 0;
+            const animate = () => {
+                if (t <= 1) {
+                    const point = getBezierPoint(t);
+                    animationPoint.setCoordinates(point);
+                    t += 0.001;
+                    requestAnimationFrame(animate);
+                } else {
+                    // 动画结束后移除动画点
+                    setTimeout(() => {
+                        vectorLayer.removeGeometry(animationPoint);
+                    }, 10000);
+                }
+            };
+            
+            animate();
+        }
+
+        function generateInterpolatedLine() {
+            // 计算贝塞尔曲线上的1000个插值点
+            const interpolatedPoints = [];
+            for (let i = 0; i <= 1000; i++) {
+                const t = i / 1000;
+                const point = getBezierPoint(t);
+                interpolatedPoints.push(point);
+            }
+
+            // 创建新的LineString
+            const interpolatedLine = new maptalks.LineString(interpolatedPoints, {
+                symbol: {
+                    lineColor: '#ff0000',
+                    lineWidth: 2,
+                    lineOpacity: 0.8,
+                    lineDasharray: [5, 3]
+                }
+            });
+
+            // 将新的LineString添加到图层
+            vectorLayer.addGeometry(interpolatedLine);
+            
+            // 存储插值线段的引用
+            interpolatedLines.push(interpolatedLine);
+            
+            // 显示信息
+            console.log(`生成了 ${interpolatedPoints.length} 个插值点`);
+            alert(`成功生成 ${interpolatedPoints.length} 个插值点的线段！`);
+        }
+
+        function clearInterpolatedLine() {
+            // 只清除插值线段
+            interpolatedLines.forEach(line => {
+                vectorLayer.removeGeometry(line);
+            });
+            
+            // 清空插值线段数组
+            interpolatedLines = [];
+            
+            // 显示信息
+            console.log('所有插值线段已清除');
+            alert('所有插值线段已清除！');
+        }
+
+        // 添加鼠标交互
+        map.on('click', function(e) {
+            const coordinate = e.coordinate;
+            console.log('点击坐标:', coordinate);
+        });
+
+        // 添加图例
+        const legend = new maptalks.ui.UIMarker([116.3974, 39.9093], {
+            content: `
+                <div style="background: white; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    <div style="font-weight: bold; margin-bottom: 5px;">图例</div>
+                    <div style="display: flex; align-items: center; margin: 2px 0;">
+                        <div style="width: 12px; height: 12px; background: #ff4444; border-radius: 50%; margin-right: 5px;"></div>
+                        <span style="font-size: 12px;">起点</span>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 2px 0;">
+                        <div style="width: 10px; height: 10px; background: #ffaa00; border-radius: 50%; margin-right: 5px;"></div>
+                        <span style="font-size: 12px;">控制点</span>
+                    </div>
+                    <div style="display: flex; align-items: center; margin: 2px 0;">
+                        <div style="width: 12px; height: 12px; background: #44ff44; border-radius: 50%; margin-right: 5px;"></div>
+                        <span style="font-size: 12px;">终点</span>
+                    </div>
+                </div>
+            `,
+            dx: 0,
+            dy: -100
+        }).addTo(map);
+    </script>
+</body>
+</html>

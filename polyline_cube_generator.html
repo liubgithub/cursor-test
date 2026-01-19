@@ -1,0 +1,2526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>胶体模拟生成</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #c4c1c1;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            max-width: 300px;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: rgb(12, 11, 11);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            min-width: 250px;
+            background: #fafbfc;
+            box-shadow: 0px 4px 8px 0px rgba(158, 169, 197, 0.5);
+            border: 1px solid #dae0e6;
+        }
+        
+        button {
+            background: #0075ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: #0075ff;
+        }
+        
+        button.danger {
+            background: #f44336;
+        }
+        
+        button.danger:hover {
+            background: #da190b;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+            margin: 5px;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        .control-group h4 {
+            margin: 0 0 10px 0;
+            color: #0075ff;
+        }
+        
+        label {
+            display: inline-block;
+            font-size: 12px;
+        }
+        
+        .value-display {
+            color: #0075ff;
+            font-weight: bold;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+        }
+        
+        label {
+            cursor: pointer;
+            user-select: none;
+        }
+        #selectJiaoti {
+            width: 20px;height: 20px;
+            background-image: url('./images/select.png');
+            cursor: pointer;
+            background-size: cover;
+        }
+        /* #startCSGBtn {
+            width: 100px;height: 25px;
+            cursor: pointer;
+            background-size: cover;
+        } */
+        label {
+            line-height: 20px;
+        }
+        
+        .view-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        
+        .view-item:hover {
+            background: #e0e0e0;
+        }
+        
+        .view-item.active {
+            background: #0075ff;
+            color: white;
+        }
+        
+        .view-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .view-item-name {
+            font-weight: bold;
+        }
+        
+        .view-item-delete {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        
+        .view-item-delete:hover {
+            background: #da190b;
+        }
+        
+        /* 加载遮罩样式 */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        
+        #loadingOverlay.show {
+            display: flex;
+        }
+        
+        .loading-content {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0075ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #333;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载遮罩 -->
+    <div id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loadingText">正在计算中，请稍候...</div>
+        </div>
+    </div>
+    
+    <div id="container">
+        
+        <div id="controls">
+            
+            <div class="control-group">
+                <h4>参数控制：</h4>
+                <div>
+                    <label>
+                        选择胶面, 开始点胶虚拟验证:
+                        <input type="button" id="selectJiaoti">
+                    </label>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button id="startAnimationBtn">点胶动画</button>
+                </div>
+                <div>
+                    <label>胶宽:</label>
+                    <input type="range" id="widthSlider" min="0.01" max="0.5" value="0.05" step="0.01">
+                    <span class="value-display" id="widthValue">0.1</span>
+                </div>
+                <div>
+                    <label>胶高:</label>
+                    <input type="range" id="heightSlider" min="0.01" max="0.5" value="0.1" step="0.01">
+                    <span class="value-display" id="heightValue">0.05</span>
+                </div>
+                <div>
+                    <label>压合:</label>
+                    <input type="range" id="jiyaSlider" min="0.001" max="0.1" value="0.05" step="0.001">
+                    <span class="value-display" id="jiyaValue">0.05</span>
+                </div>
+                <div>
+                    <label>影响权重:</label>
+                    <input type="range" id="jiyaSlider" min="0.01" max="1" value="0.05" step="0.01">
+                    <span class="value-display" id="jiyaValue">0.5</span>
+                </div>
+            </div>
+            
+            
+            
+            <div class="control-group">
+                <h4>显示控制</h4>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showModel" checked>
+                        显示模型
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showJiaomian" checked>
+                        显示胶面
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showJiaocao" checked>
+                        显示胶槽
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showLizhu" checked>
+                        显示立柱
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showJiaoti" checked>
+                        显示胶体
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="enableNearClip">
+                        启用近距离观察
+                    </label>
+                </div>
+                <!-- <div>
+                    <label>
+                        <input type="checkbox" id="showContinuousGeometry" checked>
+                        显示椭圆柱体胶体
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showCsgResultMesh" checked>
+                        显示合并结果
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="show3DPointsLine" checked>
+                        显示3D点线条
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showNonGlueMeshes" checked>
+                        显示模型
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showSlotMeshes" checked>
+                        显示溢胶槽
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showSupportMeshes" checked>
+                        显示支持柱
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" id="showBBoxMesh" checked>
+                        显示BBoxMesh
+                    </label>
+                </div> -->
+            </div>
+            
+            <div class="control-group">
+                <h4>视角管理</h4>
+                <div>
+                    <button id="saveViewBtn">保存当前视角</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 5px;">已保存视角:</label>
+                    <div id="viewList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; border-radius: 4px; padding: 5px;">
+                        <div style="color: #999; font-size: 11px; padding: 5px;">暂无保存的视角</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h4>属性信息</h4>
+                <div>
+                    <label>
+                        点胶面宽度(mm): 10
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        点胶面周长(mm): 100
+                    </label>
+                </div>
+
+                <div>
+                    <label>
+                        胶宽(mm): 10
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        胶高(mm): 100
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        胶路周长(mm): 100
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        胶路截面基准面积(mm2): 100
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        溢胶情况: <span id="overflowStatus" style="color: green;">未溢胶</span>
+                    </label>
+                </div>
+                <!-- <div>
+                    <label>支撑柱高度倍数:</label>
+                    <input type="range" id="pillarHeightMultiplier" min="0.5" max="5.0" value="2.0" step="0.1">
+                    <span class="value-display" id="pillarHeightValue">2.0</span>
+                </div>
+                <button id="csgSubtractionBtn">执行合并运算</button> -->
+            </div>
+            
+            <!-- <div class="control-group">
+                <h4>胶体材质颜色</h4>
+                <div>
+                    <label>红色:</label>
+                    <input type="range" id="redSlider" min="0" max="255" value="76" step="1">
+                    <span class="value-display" id="redValue">76</span>
+                </div>
+                <div>
+                    <label>绿色:</label>
+                    <input type="range" id="greenSlider" min="0" max="255" value="175" step="1">
+                    <span class="value-display" id="greenValue">175</span>
+                </div>
+                <div>
+                    <label>蓝色:</label>
+                    <input type="range" id="blueSlider" min="0" max="255" value="80" step="1">
+                    <span class="value-display" id="blueValue">80</span>
+                </div>
+                <div>
+                    <label>透明度:</label>
+                    <input type="range" id="alphaSlider" min="0" max="1" value="1" step="0.1">
+                    <span class="value-display" id="alphaValue">1</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <div id="colorPreview" style="width: 100%; height: 30px; border: 1px solid #333; background-color: #0075ff;"></div>
+                </div>
+            </div> -->
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./lib/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.164.0/examples/jsm/",
+                "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.6.7/build/index.module.js",
+                "three-bvh-csg": "https://unpkg.com/three-bvh-csg@0.0.17/build/index.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+        import { Evaluator, Brush, SUBTRACTION, ADDITION, INTERSECTION } from 'three-bvh-csg';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+        const config = {
+            "点胶面": "58188",
+            "溢胶槽": "62191 62192 62340 62374 62638 62608 62583 62758 62728 62698 62668 62488 62458 62428 62398 62548 62518 62194 62198 62197 62196 62195 62199 62193 62517 62547 62397 62427 62457 62487 62667 62697 62727 62757 62582 62607 62637 62373 62339 62190 62189 62188",
+            "支持柱": "62139 62145 62143 62353 62386 62656 62626 62591 62773 62743 62716 62683 62506 62476 62443 62413 62563 62533 62144 62146 62147 62148 62149 62141 62142 62515 62545 62395 62425 62455 62485 62665 62695 62725 62755 62575 62605 62635 62365 62337 62138 62137 62136 62140"
+        };
+        // 62386
+        const color = {
+            red: new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0, 0), side: THREE.DoubleSide}),
+            green: new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 1, 0), side: THREE.DoubleSide}),
+            blue: new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 0, 1), side: THREE.DoubleSide}),
+            yellow: new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 0), side: THREE.DoubleSide}),
+            orange: new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 1, 1), side: THREE.DoubleSide}),
+            grey: new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 1, 1), side: THREE.DoubleSide, transparent: true, opacity: 0.1})
+        };
+        const testViews = '[{"id":1763022519136,"name":"胶槽立柱","position":{"x":3.5395314170695054,"y":-0.057327714445998115,"z":-3.3803935015134963},"target":{"x":3.7358027188532232,"y":0.10515943969545334,"z":-2.0788640579526576},"timestamp":"2025/11/13 16:28:39"},{"id":1763023169136,"name":"溢胶","position":{"x":3.6010700456082905,"y":-0.07486886360447609,"z":-2.948806216577589},"target":{"x":3.421075310637349,"y":0.5542559566187893,"z":-5.735653603532383},"timestamp":"2025/11/13 16:39:29"},{"id":1766402473723,"name":"整体视角","position":{"x":1.8735316505839459,"y":13.634808292163118,"z":-1.2220876574117236},"target":{"x":1.873531666021728,"y":-0.404158601040602,"z":-1.2221016985526352},"timestamp":"2025/12/22 19:21:13"}]'; 
+        const buttomYJD = '{"id":1766397353724,"name":"下溢胶端","position":{"x":3.532189318087272,"y":-0.07823705156021876,"z":-2.945970342908412},"target":{"x":3.4210451121147223,"y":0.5508877686630467,"z":-5.736411782586506},"timestamp":"2025/12/22 17:55:53"}';
+        const topYJD = '{"id":1766397492094,"name":"上溢胶端","position":{"x":3.594282645073769,"y":-0.07823705156021887,"z":-2.948443540670592},"target":{"x":3.4831384391012192,"y":0.5508877686630466,"z":-5.738884980348686},"timestamp":"2025/12/22 17:58:12"}';
+        const greenMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x00ff00,  // 绿色
+            linewidth: 4
+        });
+        const yellowMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xffff00,  // 绿色
+            linewidth: 4
+        });
+        let glueMaterial = null;
+        let glueNoClipMaterial = null;
+        const overflowSlotChildren = [], supportPillarChildren = []; // 溢胶槽mesh（待后处理生成立柱）
+        let gluePlaneWorldY = null; // 点胶面(Y)高度（世界坐标）
+        class PolylineCubeGenerator {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.00001, 1000);
+                this.renderer = new THREE.WebGLRenderer({ 
+                    antialias: true,
+                    logarithmicDepthBuffer: true  // 启用对数深度缓冲区，解决near值很小时深度精度不足的问题
+                });
+                
+                // 参数
+                this.width = 0.05;
+                this.height = 0.05;
+                this.materialColor = { r: 76, g: 175, b: 80, a: 1.0 };
+                this.showContinuousGeometry = true;
+                this.startSelectDianjiaomian = false;
+                // 对象
+                this.polylineMesh = null;
+                this.cylinderMeshes = [];
+                this.points3DData = [];
+                
+                // 3D点线条相关
+                this.points3DLine = null;
+                this.points3DData = [];
+                this.show3DPointsLine = true;
+                
+                // 向内缩小线圈相关
+                this.offsetDistance = 0.75; // 向内缩小的距离
+                this.showOffsetLine = true; // 是否显示向内缩小线圈
+                this.offsetLine = null; // 向内缩小的线圈对象
+                
+                // 蓝色半圆柱体相关
+                this.blueCylinderMeshes = []; // 蓝色半圆柱体网格数组
+                this.showBlueCylinder = true; // 是否显示蓝色半圆柱体
+                this.blueWidth = 0.005; // 蓝色半圆柱体宽度（比红色小）
+                this.blueHeight = 0.01; // 蓝色半圆柱体高度（比红色小）
+                
+                // GLTF相关
+                this.gltfLoader = new GLTFLoader();
+                this.gltfModels = [];
+                this.animationMixers = [];
+                
+                // 环境贴图相关
+                this.envMap = null;
+                this.rgbeLoader = new RGBELoader();
+                this.exrLoader = new EXRLoader();
+                // 立柱体相关
+                this.pillarMeshes = [];
+                this.slotMeshes = [];
+                this.meshes = [];
+                
+                // 非胶面mesh相关
+                this.nonGlueMeshes = [];
+                this.showNonGlueMeshes = true;
+                
+                // slotMeshes相关
+                this.showSlotMeshes = true;
+                this.showSupportMeshes = true;
+                this.showOriginalCylinders = true;
+                
+                // CSG运算相关
+                this.csgResultMesh = null;
+                this.pillarHeightMultiplier = 2.0;
+                // 控制器
+                this.controls = null;
+                
+                // 点击坐标相关
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                this.clickedPoints = []; // 存储所有点击的三维坐标
+                this.pillarHeight = 0.1;
+
+                // 飞行聚焦相关
+                this.isFlying = false;
+                this.flyStartTime = 0;
+                this.flyDuration = 800; // ms
+                this.flyFromPos = new THREE.Vector3();
+                this.flyToPos = new THREE.Vector3();
+                this.flyFromTarget = new THREE.Vector3();
+                this.flyToTarget = new THREE.Vector3();
+                
+                // 视角保存相关
+                
+                
+                this.savedViews = JSON.parse(testViews);
+                this.currentViewIndex = -1;
+                
+                // 点胶动画相关
+                this.animationModel = null; // 模型A
+                this.isAnimating = false; // 是否正在动画
+                this.animationStartTime = 0; // 动画开始时间
+                this.animationDuration = 25000; // 动画持续时间（毫秒）- 慢5倍
+                this.animationProgress = 0; // 动画进度 0-1
+                
+                this.init();
+                this.setupControls();
+                this.setupClickHandler();
+                this.animate();
+                this.updateViewList();
+            }
+
+            init() {
+                // 设置渲染器
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0xc4c4c4);
+                this.renderer.localClippingEnabled = true;
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('container').appendChild(this.renderer.domElement);
+                // 设置相机
+                this.camera.position.set(15, 15, 15);
+                this.camera.lookAt(0, 0, 0);
+
+                // 添加光源 - 针对MeshStandardMaterial优化
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                this.scene.add(ambientLight);
+
+                // 主方向光
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+                directionalLight.position.set(10, 10, 5);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                directionalLight.shadow.camera.near = 0.05;
+                directionalLight.shadow.camera.far = 50;
+                directionalLight.shadow.camera.left = -20;
+                directionalLight.shadow.camera.right = 20;
+                directionalLight.shadow.camera.top = 20;
+                directionalLight.shadow.camera.bottom = -20;
+                this.scene.add(directionalLight);
+                
+                // 填充光1
+                const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+                fillLight1.position.set(-10, 5, -5);
+                this.scene.add(fillLight1);
+                
+                // 填充光2
+                const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+                fillLight2.position.set(0, 10, -10);
+                this.scene.add(fillLight2);
+                
+                // 点光源增加局部照明
+                const pointLight = new THREE.PointLight(0xffffff, 0.8, 50);
+                pointLight.position.set(0, 5, 0);
+                this.scene.add(pointLight);
+
+                // 添加网格辅助
+                // const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+                // this.scene.add(gridHelper);
+
+                // 初始化OrbitControls
+                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.minDistance = 0.00001; // 最小距离（与相机near值匹配）
+                this.controls.maxDistance = 10000; // 最大距离
+                this.controls.update();
+                
+                // 设置场景环境
+                const envMap = loadEnvironmentMap(this.renderer);
+                glueMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0x6633ff,        // 基础颜色，例如粉红色
+                    transparent: false,      // 开启透明度
+                    transmission: 0.5,     // 【核心】透光率，像玻璃一样让光线通过
+                    opacity: 1,           // 整体不透明度，与transmission配合使用
+                    thickness: 0.3,         // 【核心】虚拟厚度，用于计算光线散射的程度
+                    roughness: 0.6,         // 表面粗糙度 (0-1)，值越小越光滑
+                    metalness: 0.1,         // 金属度，胶状体通常为0
+                    clearcoat: 0.2,         // 清漆层，可以增加表面湿润感
+                    clearcoatRoughness: 0.1,// 清漆层粗糙度
+                    ior: 1.1,               // 【核心】折射率，模拟光线弯曲。胶状体通常略高于空气(1.0)
+                    side: THREE.DoubleSide
+                });
+                glueNoClipMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0x6633ff,        // 基础颜色，例如粉红色
+                    transparent: false,      // 开启透明度
+                    transmission: 0.5,     // 【核心】透光率，像玻璃一样让光线通过
+                    opacity: 1,           // 整体不透明度，与transmission配合使用
+                    thickness: 0.3,         // 【核心】虚拟厚度，用于计算光线散射的程度
+                    roughness: 0.6,         // 表面粗糙度 (0-1)，值越小越光滑
+                    metalness: 0.1,         // 金属度，胶状体通常为0
+                    clearcoat: 0.2,         // 清漆层，可以增加表面湿润感
+                    clearcoatRoughness: 0.1,// 清漆层粗糙度
+                    ior: 1.1,               // 【核心】折射率，模拟光线弯曲。胶状体通常略高于空气(1.0)
+                    side: THREE.DoubleSide
+                });        // 清漆层，可以增加表面湿润感
+                this.scene.environment = envMap;
+                this.loadGLTFModel('./gltf/点胶面模型/SJ-BACON-TOP-COVER_1.PRT(2).glb');
+                // this.loadGLTFModel('./gltf/mobile/0-asm-bacon-batt-cover_1.prt.glb');
+                // this.loadGLTFModel('./gltf/mobile/sj-bacon-top-cover_1.prt.glb');
+                
+            }
+
+            // 沿折线生成连续半圆柱体
+            generateCylinders(points3DData, cylinderMeshes, width, height, direction, inputMaterial) {
+                // 清除现有的几何体
+                cylinderMeshes.forEach(mesh => {
+                    this.scene.remove(mesh);
+                });
+                cylinderMeshes.length = 0;
+
+                if (points3DData.length < 2) return;
+
+                // 生成连续的半圆柱体几何体
+                const geometry = this.createContinuousGeometry(points3DData, width, height, direction);
+                
+                if (geometry) {
+                    const material = inputMaterial || glueMaterial;
+                    
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    // 根据显示状态决定是否添加到场景
+                    if (this.showContinuousGeometry) {
+                        this.scene.add(mesh);
+                    }
+                    cylinderMeshes.push(mesh);
+                }
+                return cylinderMeshes;
+            }
+
+            // 创建连续的半圆柱体几何体
+            createContinuousGeometry(points3DData, width, height, direction) {
+                const vertices = [];
+                const indices = [];
+                const normals = [];
+                
+                // 为每个点创建半圆形横截面
+                const crossSections = [];
+                
+                for (let i = 0; i < points3DData.length; i++) {
+                    const point = points3DData[i];
+                    const crossSection = this.createCrossSection(point, i, points3DData, width, height, direction);
+                    crossSections.push(crossSection);
+                }
+                
+                // 生成顶点
+                let vertexIndex = 0;
+                for (let i = 0; i < crossSections.length; i++) {
+                    const crossSection = crossSections[i];
+                    for (let j = 0; j < crossSection.length; j++) {
+                        const deltaHeight = crossSection[j].y - gluePlaneWorldY;
+                        const y = deltaHeight <= this.pillarHeight ? crossSection[j].y : gluePlaneWorldY + this.pillarHeight;
+                        vertices.push(crossSection[j].x, y, crossSection[j].z);
+                        // vertices.push(crossSection[j].x, crossSection[j].y, crossSection[j].z);
+                        normals.push(0, 0, 0); // 稍后计算
+                    }
+                }
+                
+                // 生成侧面索引
+                for (let i = 0; i < crossSections.length - 1; i++) {
+                    const currentSection = crossSections[i];
+                    const nextSection = crossSections[i + 1];
+                    
+                    for (let j = 0; j < currentSection.length - 1; j++) {
+                        // 当前截面的顶点索引
+                        const v1 = i * currentSection.length + j;
+                        const v2 = i * currentSection.length + j + 1;
+                        const v3 = (i + 1) * currentSection.length + j;
+                        const v4 = (i + 1) * currentSection.length + j + 1;
+                        
+                        // 创建两个三角形
+                        indices.push(v1, v3, v2);
+                        indices.push(v2, v3, v4);
+                    }
+                }
+                
+                // 生成端面
+                this.addEndCaps(indices, crossSections);
+                
+                // 创建几何体
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setIndex(indices);
+                
+                // 计算法线
+                geometry.computeVertexNormals();
+                
+                return geometry;
+            }
+
+            // 创建半圆形横截面
+            createCrossSection(point, index, points3DData, width, height, direction) {
+                const crossSection = [];
+                
+                // 将输入点安全地转换为 THREE.Vector3
+                const toVec3 = (p) => {
+                    const c = new THREE.Vector3(p.x, p.y, p.z);
+                    return c.applyMatrix4(this.points3DLine.matrixWorld);
+                };
+                const curr = toVec3(points3DData[index]);
+                const prev = index > 0 ? toVec3(points3DData[index - 1]) : null;
+                const next = index < points3DData.length - 1 ? toVec3(points3DData[index + 1]) : null;
+                
+                // 计算当前点的切线方向
+                let tangent = new THREE.Vector3();
+                if (!prev && next) {
+                    tangent.subVectors(next, curr);
+                } else if (prev && !next) {
+                    tangent.subVectors(curr, prev);
+                } else if (prev && next) {
+                    const forward = new THREE.Vector3().subVectors(next, curr);
+                    const backward = new THREE.Vector3().subVectors(curr, prev);
+                    tangent.addVectors(forward, backward).multiplyScalar(0.5);
+                }
+                tangent.normalize();
+                
+                // 计算副法线（垂直于切线）
+                const up = new THREE.Vector3(0, 1, 0);
+                let binormal = new THREE.Vector3().crossVectors(tangent, up);
+                
+                // 如果副法线为零向量，使用另一个参考向量
+                if (binormal.length() < 0.001) {
+                    const right = new THREE.Vector3(1, 0, 0);
+                    binormal.crossVectors(tangent, right);
+                }
+                
+                binormal.normalize();
+                
+                // 计算法线（垂直于切线和副法线）
+                const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
+                
+                // 创建椭圆横截面
+                const horizontalRadius = width / 2; // 水平长轴半径
+                const verticalRadius = height / 2; // 垂直短轴半径
+                const segments = 16; // 椭圆的段数
+                // 添加椭圆长轴的两个端点（底面边界）
+                const leftPoint = curr.clone().add(binormal.clone().multiplyScalar(-horizontalRadius));
+                const rightPoint = curr.clone().add(binormal.clone().multiplyScalar(horizontalRadius));
+                crossSection.push(leftPoint);  // 左端点
+                crossSection.push(rightPoint); // 右端点
+                
+                // 生成椭圆上的点（局部 x 沿 binormal，局部 y 沿 normal）
+                for (let i = 0; i <= segments; i++) {
+                    const angle = (i / segments) * Math.PI; // 0 到 π
+                    const x = Math.cos(angle) * horizontalRadius; // 水平长轴
+                    const y = Math.sin(angle) * verticalRadius * direction;   // 垂直短轴
+                    
+                    const offset = binormal.clone().multiplyScalar(x).add(normal.clone().multiplyScalar(y));
+                    const worldPoint = curr.clone().add(offset);
+                    crossSection.push(worldPoint);
+                }
+                
+                return crossSection;
+            }
+
+            // 添加端面
+            addEndCaps(indices, crossSections) {
+                if (crossSections.length < 2) return;
+                
+                const firstSection = crossSections[0];
+                const lastSection = crossSections[crossSections.length - 1];
+                const verticesPerSection = firstSection.length;
+                
+                // 第一个端面（起始端）- 椭圆形端面
+                // 索引0和1是长轴端点，索引2开始是椭圆弧点
+                const diameterStart = 0; // 左端点
+                const diameterEnd = 1;   // 右端点
+                const arcStart = 2;       // 椭圆弧起点
+                
+                // 生成底面三角形（长轴 + 椭圆弧）
+                for (let i = arcStart; i < verticesPerSection - 1; i++) {
+                    // 三角形：左端点 -> 当前弧点 -> 下一个弧点
+                    indices.push(diameterStart, i, i + 1);
+                }
+                // 最后一个三角形：左端点 -> 最后一个弧点 -> 右端点
+                indices.push(diameterStart, verticesPerSection - 1, diameterEnd);
+                
+                // 最后一个端面（结束端）- 椭圆形端面
+                const lastStartIndex = (crossSections.length - 1) * verticesPerSection;
+                const lastDiameterStart = lastStartIndex + diameterStart;
+                const lastDiameterEnd = lastStartIndex + diameterEnd;
+                
+                // 生成顶面三角形（逆时针，法线向外）
+                for (let i = arcStart; i < verticesPerSection - 1; i++) {
+                    // 三角形：左端点 -> 下一个弧点 -> 当前弧点
+                    indices.push(lastDiameterStart, lastStartIndex + i + 1, lastStartIndex + i);
+                }
+                // 最后一个三角形：左端点 -> 右端点 -> 最后一个弧点
+                indices.push(lastDiameterStart, lastDiameterEnd, lastStartIndex + verticesPerSection - 1);
+            }
+
+            // 更新材质颜色
+            updateMaterialColor() {
+                this.cylinderMeshes.forEach(mesh => {
+                    mesh.material.color.setRGB(
+                        this.materialColor.r / 255,
+                        this.materialColor.g / 255,
+                        this.materialColor.b / 255
+                    );
+                    mesh.material.transparent = this.materialColor.a < 1.0;
+                    mesh.material.opacity = this.materialColor.a;
+                    
+                    // 确保环境贴图属性保持
+                    if (mesh.material.type === 'MeshStandardMaterial') {
+                        mesh.material.envMap = this.envMap;
+                        mesh.material.envMapIntensity = 1.0;
+                        mesh.material.metalness = 0.8;
+                        mesh.material.roughness = 0.2;
+                        mesh.material.needsUpdate = true;
+                    }
+                });
+            }
+
+            // 更新颜色预览
+            updateColorPreview() {
+                const preview = document.getElementById('colorPreview');
+                preview.style.backgroundColor = `rgb(${this.materialColor.r}, ${this.materialColor.g}, ${this.materialColor.b})`;
+            }
+
+            // 更新相机近裁剪面
+            updateCameraNearPlane(enable) {
+                if (enable) {
+                    // 关闭时：设置为0.01（默认值）
+                    this.camera.near = 0.05;
+                    this.controls.minDistance = 0.1;
+                } else {
+                    // 打开时：设置为0.001（可以拉得更近）
+                    this.camera.near = 0.001;
+                    this.controls.minDistance = 0.001;
+                }
+                // 更新相机投影矩阵
+                this.camera.updateProjectionMatrix();
+                // 更新控制器
+                this.controls.update();
+            }
+
+            // 切换连续几何体显示状态
+            toggleContinuousGeometryVisibility() {
+                this.showContinuousGeometry = !this.showContinuousGeometry;
+                
+                this.cylinderMeshes.forEach(mesh => {
+                    mesh.visible = this.showContinuousGeometry;
+                });
+            }
+            // 载入GLTF模型
+            async loadGLTFModel(url, position = { x: 0, y: 0, z: 0 }, scale = { x: 0.1, y: 0.1, z: 0.1 }, rotation = { x: 3 * Math.PI / 2, y: 0, z: 0 }) {
+                this.gltfLoader.load(
+                    url,
+                    (gltf) => {
+                        console.log('GLTF模型载入成功:', gltf);
+                        const model = gltf.scene;
+                        
+                        // 设置位置
+                        model.position.set(position.x, position.y, position.z);
+                        
+                        // 设置缩放
+                        model.scale.set(scale.x, scale.y, scale.z);
+                        
+                        // 设置旋转
+                        model.rotation.set(rotation.x, rotation.y, rotation.z);
+                        
+                        // 启用阴影和材质处理
+                        
+                        model.traverse((child) => {
+                            this.nonGlueMeshes.push(child);
+                            if (child.isMesh) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                
+                                // 确保几何体正确计算边界和法线，解决深度精度问题
+                                if (child.geometry) {
+                                    // 重新计算边界，确保几何体数据正确
+                                    child.geometry.computeBoundingBox();
+                                    child.geometry.computeBoundingSphere();
+                                    // 确保法线正确计算
+                                    if (!child.geometry.attributes.normal || child.geometry.attributes.normal.count === 0) {
+                                        child.geometry.computeVertexNormals();
+                                    }
+                                }
+                                
+                                // 保存原始材质
+                                if (!child.userData.originalMaterial) {
+                                    child.userData.originalMaterial = child.material;
+                                }
+                                
+                                const extras = child.geometry.userData;
+								const faceID = extras.FaceID;
+                                
+                                // 根据FaceID应用特定材质，否则保持原始材质
+                                // if (config['点胶面'].indexOf(faceID) > -1) {
+								// 	child.material = color.red;
+                                //     // 记录点胶面高度（世界坐标Y）
+                                //     child.updateWorldMatrix(true, false);
+                                //     const localPoint = new THREE.Vector3().fromArray(child.geometry.attributes.position.array, 0);
+                                //     // 转换为世界坐标
+                                //     const worldPos = localPoint.clone().applyMatrix4(child.matrixWorld);
+                                //     gluePlaneWorldY = worldPos.y;
+                                //     this.dianjiaomian = child;
+								// } else 
+                                if (config['溢胶槽'].indexOf(faceID) > -1) {
+									child.material = color.green;
+                                    // 确保深度测试设置正确
+                                    if (child.material) {
+                                        child.material.depthTest = true;
+                                        child.material.depthWrite = true;
+                                    }
+                                    child.userData.direction = 1;
+                                    overflowSlotChildren.push(child);
+                                } else if (config['支持柱'].indexOf(faceID) > -1) {
+									child.material = glueMaterial;
+                                    // 确保深度测试设置正确
+                                    if (child.material) {
+                                        child.material.depthTest = true;
+                                        child.material.depthWrite = true;
+                                    }
+                                    child.userData.direction = -1;
+                                    child.userData.id = faceID;
+                                    supportPillarChildren.push(child);
+                                } 
+                                else {
+                                    // 保持原始材质，确保MeshStandardMaterial正确渲染
+                                    if (child.userData.originalMaterial) {
+                                        child.material = child.userData.originalMaterial;
+                                        
+                                        // 确保MeshStandardMaterial有正确的属性
+                                        if (child.material.type === 'MeshStandardMaterial') {
+                                            // 确保有颜色
+                                            // if (!child.material.color) {
+                                                child.material.color = new THREE.Color(0x888888);
+                                                child.material.side = THREE.DoubleSide;
+                                            // }
+                                            // 确保有金属度和粗糙度
+                                                child.material.metalness = 0.8;
+                                            if (child.material.roughness === undefined) {
+                                                child.material.roughness = 0.5;
+                                            }
+                                            // 确保深度测试设置正确，防止mesh消失
+                                            child.material.depthTest = true;
+                                            child.material.depthWrite = true;
+                                            // 确保材质更新
+                                            child.material.needsUpdate = true;
+                                        }
+                                    }
+
+                                }
+                                // child.visible = false;
+                                this.meshes.push(child);
+                            } else if (child.isLine) {
+                                child.visible = false;
+                                // this.lines.push(child);
+                            }
+                        });
+                        // this.lines = [];
+                        // const OutterContour = this.dianjiaomian.geometry.userData.OutterContour.split(' ').map(v => Number(v));
+                        // const InnerContour = this.dianjiaomian.geometry.userData.InnerContour.split(' ').map(v => Number(v));
+                        // model.traverse((child) => {
+                        //     if (child.isLine) {
+                        //         if (OutterContour.indexOf(child.geometry.userData.EdgeID) > -1) {
+                        //             child.material = new THREE.LineBasicMaterial({ 
+                        //                 color: new THREE.Color(Math.random(), Math.random(), Math.random()),  // 绿色
+                        //                 linewidth: 4
+                        //             });
+                        //             // child.material = greenMaterial;
+                        //             // const c = child.clone();
+                        //             // c.scale.set(0.9945, 0.9945, 0.9945);
+                        //             // child.parent.add(c);
+                        //         }
+                        //         if (InnerContour.indexOf(child.geometry.userData.EdgeID) > -1) {
+                        //             child.material = new THREE.LineBasicMaterial({ 
+                        //                 color: new THREE.Color(Math.random(), Math.random(), Math.random()),  // 绿色
+                        //                 linewidth: 4
+                        //             });
+                        //             // child.material = yellowMaterial;
+                        //         }
+                        //         if (OutterContour.indexOf(child.geometry.userData.EdgeID) > -1 || InnerContour.indexOf(child.geometry.userData.EdgeID) > -1) {
+                        //             child.visible = true;
+                        //         } else {
+                        //             child.visible = false;
+                        //         }
+                        //         this.lines.push(child);
+                        //     }
+                        // })
+                        this.scene.add(model);
+                        // 基于model的boundingBox构造盒状mesh并添加到场景中
+                        const boundingBox = new THREE.Box3().setFromObject(model);
+                        const boxSize = new THREE.Vector3();
+                        boundingBox.getSize(boxSize);
+                        const boxCenter = new THREE.Vector3();
+                        boundingBox.getCenter(boxCenter);
+                        const bboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+                        const bboxMaterial = new THREE.MeshStandardMaterial({ color: 0xff9900, transparent: true, opacity: 0.1, wireframe: false });
+                        const bboxMesh = new THREE.Mesh(bboxGeometry, bboxMaterial);
+                        bboxMesh.position.copy(boxCenter);
+                        this.scene.add(bboxMesh);
+                        this.gltfModels.push(bboxMesh);
+                        bboxMesh.scale.set(0.977, 5, 0.977);
+                        this.gltfBoxMesh = bboxMesh;
+                        this.gltfBoxMesh.visible = false;
+                         // 根据gltfBoxMesh前后左右面设置裁剪面
+                        //  this.updateClippingPlanesFromBBox();
+                        console.log('GLTF模型已添加到场景');
+
+                        this.model = model;
+                    },
+                    (progress) => {
+                        console.log('GLTF载入进度:', (progress.loaded / progress.total * 100) + '%');
+                    },
+                    (error) => {
+                        console.error('GLTF载入失败:', error);
+                    }
+                    
+                );
+            }
+
+            // 从gltfBoxMesh生成前后左右四个裁剪面（不包含上下面）并应用到圆柱胶体材质
+            updateClippingPlanesFromBBox(toClip = true) {
+                if (!this.gltfBoxMesh) return;
+                // 使用世界坐标系下的包围盒
+                const worldBox = new THREE.Box3().setFromObject(this.gltfBoxMesh);
+                const min = worldBox.min;
+                const max = worldBox.max;
+                // 四个面朝向盒子内部
+                const planes = [
+                    new THREE.Plane(new THREE.Vector3( 1, 0, 0), -min.x), // 左面 x = min.x, 法线 +X
+                    new THREE.Plane(new THREE.Vector3(-1, 0, 0),  max.x), // 右面 x = max.x, 法线 -X
+                    new THREE.Plane(new THREE.Vector3( 0, 0, 1), -min.z), // 前面 z = min.z, 法线 +Z
+                    new THREE.Plane(new THREE.Vector3( 0, 0,-1),  max.z), // 后面 z = max.z, 法线 -Z
+                ];
+                this.clippingPlanes = planes;
+                // 应用到胶体材质与现有胶体mesh
+                if (glueMaterial && toClip) {
+                    glueMaterial.clippingPlanes = planes;
+                    glueMaterial.needsUpdate = true;
+                } else {
+                    glueMaterial.clippingPlanes = [];
+                    glueMaterial.needsUpdate = true;
+                }
+                this.cylinderMeshes.forEach(m => {
+                    if (m.material && toClip) {
+                        m.material.clippingPlanes = planes;
+                        m.material.needsUpdate = true;
+                    } else {
+                        m.material.clippingPlanes = [];
+                        m.material.needsUpdate = true;
+                    }
+                });
+            }
+
+            generateSlotAndSupportMeshes(meshes, copyGroup, gluePlaneWorldY) {
+                // console.log(`开始生成 ${copyGroup.length} 个支撑柱`);
+                
+                copyGroup.forEach((mesh, index) => {
+                    mesh.updateWorldMatrix(true, false);
+                    
+                    // 计算mesh本地第一个顶点的位置
+                    const localPoint = new THREE.Vector3().fromArray(mesh.geometry.attributes.position.array, 0);
+                    // 转换为世界坐标
+                    const slotWorldPos = localPoint.clone().applyMatrix4(mesh.matrixWorld);
+                    const baseY = slotWorldPos.y;
+                    const height = Math.abs(gluePlaneWorldY - baseY);
+                    if (height <= 0) return; // 若不在下面则不生成
+                    
+                    // 确保支撑柱足够高，能够延伸到圆柱体顶部
+                    // 计算圆柱体的最大高度
+                    let maxCylinderHeight = 0;
+                    this.cylinderMeshes.forEach(cylinderMesh => {
+                        cylinderMesh.updateWorldMatrix(true, false);
+                        const cylinderBox = new THREE.Box3().setFromObject(cylinderMesh);
+                        const cylinderHeight = cylinderBox.max.y - cylinderBox.min.y;
+                        maxCylinderHeight = Math.max(maxCylinderHeight, cylinderHeight);
+                    });
+                    
+                    // 使用更大的高度确保支撑柱能延伸到圆柱体顶部
+                    const extendedHeight = Math.max(height / 0.1, maxCylinderHeight * this.pillarHeightMultiplier);
+                    
+                    // 半径取溢胶槽包围盒较小尺寸的一半，或使用默认值
+                    const sideMesh = this.crateSideMesh(mesh, extendedHeight, mesh.userData.direction);
+                    
+                    this.scene.add(sideMesh);
+                    meshes.push(sideMesh);
+                });
+            }
+
+            // 生成mesh的侧面并封闭，返回一个新的盒状体Mesh
+            crateSideMesh(mesh, height, direction = 1) {
+                
+                // 原始复杂方法 - 暂时注释掉
+                // 1. 获取mesh的顶面顶点
+                const posAttr = mesh.geometry.attributes.position;
+                const posCount = posAttr.count;
+                // 收集顶面顶点
+                let baseVertices = [];
+                for (let i = 0; i < posCount; i++) {
+                    const vertex = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+                    baseVertices.push(vertex);
+                }
+
+                // 2. 计算顶面法向量（假设平面水平，方向为0,1,0或0,-1,0）
+                let normal = new THREE.Vector3();
+                normal.set(0, 0, 1);
+
+                // 3. 复制面顶点 并 沿法向移动height = 得到topVertices
+                const directionVal = direction; // up or down
+                const offsetVec = normal.clone().multiplyScalar(height * directionVal);
+                // mesh2为top，mesh为base
+                const topVertices = baseVertices.map(v => v.clone().add(offsetVec));
+
+                // 4. 侧面三角面拼接
+                // 假设顺序一致，首尾闭合
+                let indices = [];
+                const len = baseVertices.length;
+                for (let i = 0; i < len; i++) {
+                    // 底面相邻点i,i+1，与顶面对应点i,i+1
+                    const j = (i + 1) % len;
+                    const b0 = i;
+                    const b1 = j;
+                    const t0 = i + len;
+                    const t1 = j + len;
+                    // 2个三角面(i, j, t1), (i, t1, t0)
+                    indices.push(b0, b1, t1);
+                    indices.push(b0, t1, t0);
+                }
+
+                // 5. 封顶&封底（需要顶点顺序正确，保证法线朝外）
+                // 使用三角扇方法，第一个顶点（索引0）是中心点
+
+                function triangulateFace(vertexIndices, flip = false) {
+                    const triangles = [];
+                    const centerIndex = vertexIndices[0]; // 第一个顶点作为中心
+                    
+                    // 从索引1开始，因为索引0是中心点
+                    for(let i = 1; i < vertexIndices.length - 1; i++) {
+                        if(!flip) {
+                            // 逆时针：center -> i -> i+1 (法线向外)
+                            triangles.push(centerIndex, vertexIndices[i], vertexIndices[i + 1]);
+                        } else {
+                            // 顺时针：center -> i+1 -> i (法线向外)
+                            triangles.push(centerIndex, vertexIndices[i + 1], vertexIndices[i]);
+                        }
+                    }
+                    return triangles;
+                }
+
+                // 封底（base）法线向外 - 使用逆时针顺序
+                const baseIndices = [...Array(len).keys()];
+                indices.push(...triangulateFace(baseIndices, false));
+                
+                // 封顶（top）法线向外 - 重新生成顶部面
+                const topIndices = [...Array(len).keys()].map(i => i + len);
+                
+                // 手动生成顶部面，确保正确的法线方向
+                const topCenterIndex = topIndices[0]; // 顶部中心点
+                for(let i = 1; i < topIndices.length - 1; i++) {
+                    if (direction === 1) {
+                        // 向上延伸，顶部面法线应该向上（逆时针）
+                        indices.push(topCenterIndex, topIndices[i], topIndices[i + 1]);
+                    } else {
+                        // 向下延伸，顶部面法线应该向下（顺时针）
+                        indices.push(topCenterIndex, topIndices[i + 1], topIndices[i]);
+                    }
+                }
+                
+
+                // 6. 合并所有顶点
+                const allVertices = [...baseVertices, ...topVertices];
+                const verticesArray = [];
+                allVertices.forEach(v => {
+                    verticesArray.push(v.x, v.y, v.z);
+                });
+                // 7. 生成BufferGeometry
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(verticesArray, 3));
+                geometry.setIndex(indices);
+                
+                // 重新计算法线，确保正确
+                geometry.computeVertexNormals();
+                
+                // 验证几何体
+                if (geometry.attributes.position.count === 0) {
+                    console.error('几何体顶点数为0');
+                    return null;
+                }
+                if (geometry.index && geometry.index.count === 0) {
+                    console.error('几何体索引数为0');
+                    return null;
+                }
+                
+                
+                // 验证几何体是否为封闭的
+                const isValidGeometry = this.validateGeometry(geometry);
+                if (!isValidGeometry) {
+                    console.warn('立柱体几何体可能不是封闭的，这可能导致CSG运算异常');
+                }
+                
+                // 材质，继承mesh材质并设为半透明
+                // const material = mesh.material.clone ? mesh.material.clone() : new THREE.MeshStandardMaterial({ color: 0x66cc44, transparent:true, opacity:0.7 });
+                const material = new THREE.MeshStandardMaterial({ color: 0xffff00, transparent:true, opacity:0.7, side: THREE.DoubleSide });
+
+                // 8. 构建mesh
+                const sideMesh = new THREE.Mesh(geometry, material);
+                sideMesh.castShadow = true;
+                sideMesh.receiveShadow = true;
+                sideMesh.scale.setScalar(0.1);
+                sideMesh.rotation.set(3 * Math.PI / 2, 0, 0);
+                // 基于sideMesh的包围盒生成一个包围盒Mesh供CSG用
+                // 计算包围盒
+                const boundingBox = new THREE.Box3().setFromObject(sideMesh);
+                const boxSize = new THREE.Vector3();
+                boundingBox.getSize(boxSize);
+                const boxCenter = new THREE.Vector3();
+                boundingBox.getCenter(boxCenter);
+
+                // 用包围盒的尺寸和中心生成BoxGeometry和mesh
+                const bboxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+                const bboxMaterial = direction === 1 ? glueMaterial : new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: false, transparent: true, opacity: 0.9 });
+                const bboxMesh = new THREE.Mesh(bboxGeometry, bboxMaterial);
+                bboxMesh.position.copy(boxCenter);
+                bboxMesh.userData.id = mesh.userData.id;
+                // bboxMesh.position.y -= 0.02;
+                // 若立柱体有旋转，也将包围盒mesh设置相同旋转
+                // bboxMesh.rotation.copy(sideMesh.rotation);
+                // bboxMesh.scale.copy(sideMesh.scale);
+                return bboxMesh;
+                
+            }
+
+            // 验证几何体是否为封闭的
+            validateGeometry(geometry) {
+                if (!geometry.attributes.position || !geometry.index) {
+                    return false;
+                }
+                
+                const positionAttribute = geometry.attributes.position;
+                const indexAttribute = geometry.index;
+                
+                // 检查是否有足够的顶点和索引
+                if (positionAttribute.count < 4 || indexAttribute.count < 12) {
+                    return false;
+                }
+                
+                // 检查索引是否有效
+                const maxIndex = Math.max(...Array.from(indexAttribute.array));
+                if (maxIndex >= positionAttribute.count) {
+                    console.warn(`几何体索引超出范围: maxIndex=${maxIndex}, vertexCount=${positionAttribute.count}`);
+                    return false;
+                }
+                
+                return true;
+            }
+
+            // 清除所有GLTF模型
+            clearGLTFModels() {
+                this.gltfModels.forEach(model => {
+                    this.scene.remove(model);
+                });
+                this.gltfModels = [];
+                
+                // 清除非胶面mesh引用
+                this.nonGlueMeshes = [];
+                
+                // 清除动画混合器
+                this.animationMixers = [];
+            }
+
+            // CSG减法运算：使用pillarMeshes对cylinderMeshes进行减法运算
+            performCSGSubtraction(from, target, method, needMergeMeshes) {
+                try {           
+                    let combinedCylinderGeometry = null;
+                    // 合并所有圆柱体mesh为一个几何体
+                    const cylinderGeometries = [];
+                    for (let i = 0; i < target.length; i++) {
+                        const mesh = target[i];
+                        mesh.updateMatrixWorld();
+                        const geometry = mesh.geometry.clone();
+                        
+                        // 确保几何体有索引
+                        if (!geometry.index) {
+                            geometry.setIndex(null);
+                        }
+                        
+                        // 应用变换矩阵
+                        geometry.applyMatrix4(mesh.matrixWorld);
+                        
+                        // 重新计算法线
+                        geometry.computeVertexNormals();
+                        
+                        // 确保几何体是有效的
+                        geometry.computeBoundingBox();
+                        geometry.computeBoundingSphere();
+                        
+                        cylinderGeometries.push(geometry);
+                    }
+                    if (cylinderGeometries.length > 0) {
+                        combinedCylinderGeometry = BufferGeometryUtils.mergeGeometries(cylinderGeometries);
+                        if (combinedCylinderGeometry) {
+                            combinedCylinderGeometry.computeVertexNormals();
+                            combinedCylinderGeometry.computeBoundingBox();
+                            combinedCylinderGeometry.computeBoundingSphere();
+                        }
+                    }
+                    // 合并所有支撑柱mesh为一个几何体
+                    const pillarGeometries = [];
+                    for (let i = 0; i < from.length; i++) {
+                        const mesh = from[i];
+                        mesh.updateMatrixWorld();
+                        const geometry = mesh.geometry.clone();
+                        
+                        // 确保几何体有索引
+                        if (!geometry.index) {
+                            geometry.setIndex(null);
+                        }
+                        
+                        // 应用变换矩阵
+                        geometry.applyMatrix4(mesh.matrixWorld);
+                        
+                        // 重新计算法线
+                        geometry.computeVertexNormals();
+                        
+                        // 确保几何体是有效的
+                        geometry.computeBoundingBox();
+                        geometry.computeBoundingSphere();
+                        
+                        pillarGeometries.push(geometry);
+                    }
+                    
+                    let combinedPillarGeometry = null;
+                    if (pillarGeometries.length > 0) {
+                        combinedPillarGeometry = BufferGeometryUtils.mergeGeometries(pillarGeometries);
+                        if (combinedPillarGeometry) {
+                            combinedPillarGeometry.computeVertexNormals();
+                            combinedPillarGeometry.computeBoundingBox();
+                            combinedPillarGeometry.computeBoundingSphere();
+                        }
+                    }
+                    // 检查几何体是否有效
+                    if (!combinedCylinderGeometry || !combinedCylinderGeometry.attributes.position) {
+                        throw new Error('圆柱体几何体无效');
+                    }
+                    if (!combinedPillarGeometry || !combinedPillarGeometry.attributes.position) {
+                        throw new Error('支撑柱几何体无效');
+                    }
+                    
+                    // 计算几何体的边界框用于调试
+                    const cylinderBox = new THREE.Box3().setFromBufferAttribute(combinedCylinderGeometry.attributes.position);
+                    const pillarBox = new THREE.Box3().setFromBufferAttribute(combinedPillarGeometry.attributes.position);
+                    
+                    
+                    // 检查两个几何体是否相交
+                    const intersection = cylinderBox.intersectsBox(pillarBox);
+                    
+                    if (!intersection) {
+                        console.warn('警告：圆柱体和支撑柱几何体在边界框层面不相交，CSG运算可能无效');
+                        console.log('建议检查几何体的实际位置和大小');
+                    }
+                    
+                    // 创建Evaluator实例，使用更保守的设置
+                    const evaluator = new Evaluator();
+                    evaluator.attributes = [ 'position', 'normal' ];
+                    
+                    // 设置更保守的CSG参数
+                    evaluator.useGroups = false;
+                    evaluator.verbose = true;
+                    
+                    // 创建Brush对象，确保几何体有效
+                    const cylinderBrush = new Brush(combinedCylinderGeometry);
+                    const pillarBrush = new Brush(combinedPillarGeometry);
+                    
+                    // 验证Brush对象
+                    if (!cylinderBrush || !pillarBrush) {
+                        throw new Error('Brush对象创建失败');
+                    }
+                    
+                    // 执行减法运算
+                    console.log('执行CSG减法运算...');
+                    console.log('圆柱体顶点数:', combinedCylinderGeometry.attributes.position.count);
+                    console.log('支撑柱顶点数:', combinedPillarGeometry.attributes.position.count);
+                    
+                    // 尝试执行CSG运算，如果失败则使用备用方案
+                    let csgResult = null;
+                    try {
+                        csgResult = evaluator.evaluate(cylinderBrush, pillarBrush, method);
+                    } catch (csgError) {
+                        console.warn('CSG运算失败，尝试备用方案:', csgError);
+                        // 备用方案：直接使用圆柱体几何体
+                        csgResult = { geometry: combinedCylinderGeometry };
+                    }
+                    
+                    // 将CSG结果转换为标准BufferGeometry
+                    let resultGeometry = null;
+                    if (csgResult && csgResult.geometry) {
+                        resultGeometry = csgResult.geometry;
+                    } else if (csgResult && csgResult.attributes) {
+                        // 如果直接返回几何体数据，创建新的BufferGeometry
+                        resultGeometry = new THREE.BufferGeometry();
+                        if (csgResult.attributes.position) {
+                            resultGeometry.setAttribute('position', csgResult.attributes.position);
+                        }
+                        if (csgResult.attributes.normal) {
+                            resultGeometry.setAttribute('normal', csgResult.attributes.normal);
+                        }
+                        if (csgResult.index) {
+                            resultGeometry.setIndex(csgResult.index);
+                        }
+                    } else {
+                        throw new Error('CSG运算结果格式不正确');
+                    }
+                    
+                    // 确保结果几何体有必要的属性
+                    if (resultGeometry) {
+                        // 清理morphAttributes
+                        resultGeometry.morphAttributes = {};
+                        
+                        // 确保有正确的索引
+                        if (!resultGeometry.index) {
+                            resultGeometry.setIndex(null);
+                        }
+                        
+                        // 重新计算法线以确保正确渲染
+                        resultGeometry.computeVertexNormals();
+                        
+                        // 计算边界信息
+                        resultGeometry.computeBoundingBox();
+                        resultGeometry.computeBoundingSphere();
+                        
+                        // 验证几何体完整性
+                        if (!resultGeometry.attributes.position || resultGeometry.attributes.position.count === 0) {
+                            throw new Error('CSG结果几何体顶点数据无效');
+                        }
+                        
+                        console.log('CSG结果几何体顶点数:', resultGeometry.attributes.position.count);
+                        console.log('CSG结果几何体索引数:', resultGeometry.index ? resultGeometry.index.count : '无索引');
+                    } else {
+                        throw new Error('CSG运算结果为空');
+                    }
+                    
+                    // 创建结果mesh
+                    const resultMaterial = glueMaterial;
+                    
+                    const csgResultMesh = new THREE.Mesh(resultGeometry, resultMaterial);
+                    csgResultMesh.castShadow = true;
+                    csgResultMesh.receiveShadow = true;
+                    
+                    // 添加到场景
+                    // this.scene.add(csgResultMesh);
+                    return csgResultMesh;
+                    
+                    console.log('CSG减法运算完成');
+                    
+                } catch (error) {
+                    console.error('CSG运算失败:', error);
+                    alert('CSG运算失败: ' + error.message);
+                }
+            }
+
+            // 清除CSG运算结果
+            clearCSGResult() {
+                if (this.csgResultMesh) {
+                    this.scene.remove(this.csgResultMesh);
+                    this.csgResultMesh = null;
+                    console.log('CSG运算结果已清除');
+                }
+            }
+
+            // 更新动画
+            updateAnimations(deltaTime) {
+                this.animationMixers.forEach(mixer => {
+                    mixer.update(deltaTime);
+                });
+            }
+
+            // 加载模型A（点胶动画模型）
+            loadAnimationModel() {
+                return new Promise((resolve, reject) => {
+                    // 如果已经加载过，直接返回
+                    if (this.animationModel) {
+                        resolve(this.animationModel);
+                        return;
+                    }
+
+                    this.gltfLoader.load(
+                        './gltf/drill/scene.gltf',
+                        (gltf) => {
+                            console.log('模型A载入成功:', gltf);
+                            const model = gltf.scene;
+                            
+                            // 设置初始位置（路径起点）
+                            if (this.points3DData.length > 0 && this.points3DLine) {
+                                const toVec3 = (p) => {
+                                    const c = new THREE.Vector3(p.x, p.y, p.z);
+                                    return c.applyMatrix4(this.points3DLine.matrixWorld);
+                                };
+                                const startPoint = toVec3(this.points3DData[0]);
+                                model.position.copy(startPoint);
+                            }
+                            
+                            // 设置缩放（根据实际需要调整）
+                            model.scale.set(0.0001, 0.0001, 0.0001);
+                            
+                            // 启用阴影
+                            model.traverse((child) => {
+                                if (child.isMesh) {
+                                    child.castShadow = true;
+                                    child.receiveShadow = true;
+                                }
+                            });
+                            
+                            this.scene.add(model);
+                            this.animationModel = model;
+                            
+                            // 如果有动画，创建动画混合器
+                            if (gltf.animations && gltf.animations.length > 0) {
+                                const mixer = new THREE.AnimationMixer(model);
+                                gltf.animations.forEach((clip) => {
+                                    mixer.clipAction(clip).play();
+                                });
+                                this.animationMixers.push(mixer);
+                            }
+                            
+                            resolve(model);
+                        },
+                        (progress) => {
+                            console.log('模型A载入进度:', (progress.loaded / progress.total * 100) + '%');
+                        },
+                        (error) => {
+                            console.error('模型A载入失败:', error);
+                            reject(error);
+                        }
+                    );
+                });
+            }
+
+            // 启动点胶动画
+            async startGlueAnimation() {
+                // 检查是否有路径数据
+                if (!this.points3DData || this.points3DData.length < 2) {
+                    alert('请先加载3D点数据');
+                    return;
+                }
+
+                // 检查是否已经有points3DLine
+                if (!this.points3DLine) {
+                    alert('请先选择点胶面并加载3D点数据');
+                    return;
+                }
+
+                // 如果正在动画，先停止
+                if (this.isAnimating) {
+                    this.isAnimating = false;
+                    return;
+                }
+
+                try {
+                    // 加载模型A（如果还没加载）
+                    if (!this.animationModel) {
+                        await this.loadAnimationModel();
+                    }
+
+                    // 确保模型可见
+                    this.animationModel.visible = true;
+
+                    // 重置到起点
+                    const toVec3 = (p) => {
+                        const c = new THREE.Vector3(p.x, p.y, p.z);
+                        return c.applyMatrix4(this.points3DLine.matrixWorld);
+                    };
+                    const startPoint = toVec3(this.points3DData[0]);
+                    this.animationModel.position.copy(startPoint);
+
+                    // 启动动画
+                    this.isAnimating = true;
+                    this.animationStartTime = performance.now();
+                    this.animationProgress = 0;
+                    
+                    console.log('点胶动画开始');
+                } catch (error) {
+                    console.error('启动点胶动画失败:', error);
+                    alert('启动点胶动画失败: ' + error.message);
+                }
+            }
+
+            // 更新GLTF模型位置
+            updateGLTFModelsPosition() {
+                const posX = parseFloat(document.getElementById('posXSlider').value);
+                const posY = parseFloat(document.getElementById('posYSlider').value);
+                const posZ = parseFloat(document.getElementById('posZSlider').value);
+                
+                this.gltfModels.forEach(model => {
+                    model.position.set(posX, posY, posZ);
+                });
+            }
+            //5.6 + 3 + 2 + 1 + 2 + 17 = 30.6 + 3.4 = 34
+            // 更新GLTF模型缩放
+            updateGLTFModelsScale() {
+                const scale = parseFloat(document.getElementById('scaleSlider').value);
+                
+                this.gltfModels.forEach(model => {
+                    model.scale.setScalar(scale);
+                });
+            }
+
+            startCSG() {
+                // 显示加载遮罩
+                this.showLoadingOverlay();
+                setTimeout(async () => {
+                    const loadingText = document.getElementById('loadingText');
+                    // 使用setTimeout让UI有机会更新显示遮罩
+                    try {
+                        const csgResultMesh = this.performCSGSubtraction(this.pillarMeshes, this.cylinderMeshes, SUBTRACTION, true);
+                        loadingText.innerText = '插值点...';
+                        // this.scene.add(csgResultMesh);
+                        const additionCSGResult = this.performCSGSubtraction(this.slotMeshes, [csgResultMesh], ADDITION, false);
+                        this.csgResultMesh = additionCSGResult;
+                        this.scene.add(additionCSGResult);
+                        loadingText.innerText = '构造截面...';
+                        await awaitMethod(5000);
+                        loadingText.innerText = '生成模型...';
+                        await awaitMethod(5000);
+                        this.hideLoadingOverlay();
+                    } catch (error) {
+                        console.error('CSG操作失败:', error);
+                        alert('操作失败: ' + error.message);
+                    } finally {
+                        // 隐藏加载遮罩
+                        this.hideLoadingOverlay();
+                    }
+                }, 50);
+            }
+
+            setupControls() {
+                const selectDianjiaomianButton = document.getElementById('selectJiaoti');
+                selectDianjiaomianButton.addEventListener('click', (e) => {
+                    this.startSelectDianjiaomian = true;
+                });
+                
+                // 点胶动画按钮
+                const startAnimationBtn = document.getElementById('startAnimationBtn');
+                startAnimationBtn.addEventListener('click', () => {
+                    this.startGlueAnimation();
+                });
+                
+                // 视角保存按钮
+                const saveViewBtn = document.getElementById('saveViewBtn');
+                saveViewBtn.addEventListener('click', () => {
+                    this.saveCurrentView();
+                });
+                // 显示控制
+                const showModelCheckbox = document.getElementById('showModel');
+                showModelCheckbox.addEventListener('change', (e) => {
+                    this.model.visible = e.target.checked;
+                    // this.meshes.forEach(mesh => {
+                    //     mesh.visible = e.target.checked;
+                    // });
+                })
+                const showJiaomianCheckbox = document.getElementById('showJiaomian');
+                showJiaomianCheckbox.addEventListener('change', (e) => {
+                    this.dianjiaomian.visible = e.target.checked;
+                    this.slotMeshes.forEach(mesh => {
+                        mesh.visible = e.target.checked;
+                    });
+                    this.pillarMeshes.forEach(mesh => {
+                        mesh.visible = e.target.checked;
+                    });
+                })
+
+                // 胶槽显示控制
+                const showJiaocaoCheckbox = document.getElementById('showJiaocao');
+                showJiaocaoCheckbox.addEventListener('change', (e) => {
+                    this.slotMeshes.forEach(mesh => {
+                        mesh.visible = e.target.checked;
+                    });
+                });
+
+                // 立柱显示控制
+                const showshowLizhuCheckbox = document.getElementById('showLizhu');
+                showshowLizhuCheckbox.addEventListener('change', (e) => {
+                    this.pillarMeshes.forEach(mesh => {
+                        mesh.visible = e.target.checked;
+                    });
+                });
+
+                // 胶体显示控制
+                const showJiaotiCheckbox = document.getElementById('showJiaoti');
+                showJiaotiCheckbox.addEventListener('change', (e) => {
+                    this.cylinderMeshes.forEach(mesh => {
+                        mesh.visible = e.target.checked;
+                    });
+                });
+
+                // 相机近裁剪面控制
+                const enableNearClipCheckbox = document.getElementById('enableNearClip');
+                enableNearClipCheckbox.addEventListener('change', (e) => {
+                    this.updateCameraNearPlane(e.target.checked);
+                });
+//                 const showSupportMeshesCheckbox = document.getElementById('showSupportMeshes');
+//                 showSupportMeshesCheckbox.addEventListener('change', (e) => {
+//                     this.showSupportMeshes = e.target.checked;
+//                     this.pillarMeshes.forEach(mesh => {
+//                         mesh.visible = this.showSupportMeshes;
+//                     });
+//                 });
+//                 const showBBoxMeshCheckbox = document.getElementById('showBBoxMesh');
+//                 showBBoxMeshCheckbox.addEventListener('change', (e) => {
+//                     this.gltfBoxMesh.visible = e.target.checked;
+//                 });
+//                 // CSG运算控制
+//                 const csgSubtractionBtn = document.getElementById('csgSubtractionBtn');
+
+//                 csgSubtractionBtn.addEventListener('click', () => {
+//                     const csgResultMesh = this.performCSGSubtraction(this.pillarMeshes, this.cylinderMeshes, SUBTRACTION, true);
+//                     // this.scene.add(csgResultMesh);
+//                     const additionCSGResult = this.performCSGSubtraction(this.slotMeshes, [csgResultMesh], ADDITION, false);
+//                     this.csgResultMesh = additionCSGResult;
+//                     this.scene.add(additionCSGResult);
+//                 });
+                
+//                 // 支撑柱高度倍数控制
+//                 const pillarHeightMultiplier = document.getElementById('pillarHeightMultiplier');
+//                 const pillarHeightValue = document.getElementById('pillarHeightValue');
+                
+//                 pillarHeightMultiplier.addEventListener('input', (e) => {
+//                     this.pillarHeightMultiplier = parseFloat(e.target.value);
+//                     pillarHeightValue.textContent = this.pillarHeightMultiplier.toFixed(1);
+//                 });
+
+//                 // 几何体参数控制
+                    const widthSlider = document.getElementById('widthSlider');
+                    const widthValue = document.getElementById('widthValue');
+                    const heightSlider = document.getElementById('heightSlider');
+                    const heightValue = document.getElementById('heightValue');
+                    const jiyaSlider = document.getElementById('jiyaSlider');
+                    const jiyaValue = document.getElementById('jiyaValue');
+
+                    widthSlider.addEventListener('input', (e) => {
+                        const width = parseFloat(e.target.value);
+                        widthValue.textContent = this.width.toFixed(2);
+                        // this.generateCylinders(this.points3DData, this.cylinderMeshes, this.width, this.height, 1);
+                        // this.pillarHeight = parseFloat(e.target.value);
+                        // jiyaValue.textContent = this.pillarHeight.toFixed(2);
+                        // console.log(this.pillarHeight);
+                        this.width = width * 0.5;
+                        if (width <= 0.17) {
+                            this.generateCylinders(this.points3DData, this.cylinderMeshes, this.width, this.height, 1);
+                        }
+                        
+                        if (width >= 0.17) {
+                            this.blueCylinderMeshes.forEach(mesh => {
+                                mesh.visible = true;
+                            });
+                            // this.topCylinderMeshes.forEach(mesh => {
+                            //     mesh.visible = true;
+                            // });
+                            document.getElementById('overflowStatus').textContent = '溢胶';
+                            document.getElementById('overflowStatus').style.color = 'red';
+                        } else {
+                            this.blueCylinderMeshes.forEach(mesh => {
+                                mesh.visible = false;
+                            });
+                            // this.topCylinderMeshes.forEach(mesh => {
+                            //     mesh.visible = false;
+                            // });
+                            document.getElementById('overflowStatus').textContent = '未溢胶';
+                            document.getElementById('overflowStatus').style.color = 'green';
+                        }
+                    });
+
+                    heightSlider.addEventListener('input', (e) => {
+                        this.height = parseFloat(e.target.value);
+                        heightValue.textContent = this.height.toFixed(2);
+                        this.generateCylinders(this.points3DData, this.cylinderMeshes, this.width, this.height, 1);
+                    });
+
+                    jiyaSlider.addEventListener('input', (e) => {
+                        this.pillarHeight = parseFloat(e.target.value);
+                        jiyaValue.textContent = this.pillarHeight.toFixed(2);
+                        console.log(this.pillarHeight);
+                        if (this.pillarHeight > this.height) {
+                            return;
+                        }
+                        this.width = 0.1 - this.pillarHeight;
+                        if (this.pillarHeight >= 0.014) {
+                            this.generateCylinders(this.points3DData, this.cylinderMeshes, this.width, this.height, 1);
+                        }
+                        if (this.pillarHeight <= 0.014) {
+                            this.blueCylinderMeshes.forEach(mesh => {
+                                mesh.visible = true;
+                            });
+                            this.topCylinderMeshes.forEach(mesh => {
+                                mesh.visible = true;
+                            });
+                            document.getElementById('overflowStatus').textContent = '溢胶';
+                            document.getElementById('overflowStatus').style.color = 'red';
+                        } else {
+                            this.blueCylinderMeshes.forEach(mesh => {
+                                mesh.visible = false;
+                            });
+                            this.topCylinderMeshes.forEach(mesh => {
+                                mesh.visible = false;
+                            });
+                            document.getElementById('overflowStatus').textContent = '未溢胶';
+                            document.getElementById('overflowStatus').style.color = 'green';
+                        }
+                    });
+// //
+//                 // 材质颜色控制
+//                 const redSlider = document.getElementById('redSlider');
+//                 const redValue = document.getElementById('redValue');
+//                 const greenSlider = document.getElementById('greenSlider');
+//                 const greenValue = document.getElementById('greenValue');
+//                 const blueSlider = document.getElementById('blueSlider');
+//                 const blueValue = document.getElementById('blueValue');
+//                 const alphaSlider = document.getElementById('alphaSlider');
+//                 const alphaValue = document.getElementById('alphaValue');
+
+//                 redSlider.addEventListener('input', (e) => {
+//                     this.materialColor.r = parseInt(e.target.value);
+//                     redValue.textContent = this.materialColor.r;
+//                     this.updateMaterialColor();
+//                     this.updateColorPreview();
+//                 });
+
+//                 greenSlider.addEventListener('input', (e) => {
+//                     this.materialColor.g = parseInt(e.target.value);
+//                     greenValue.textContent = this.materialColor.g;
+//                     this.updateMaterialColor();
+//                     this.updateColorPreview();
+//                 });
+
+//                 blueSlider.addEventListener('input', (e) => {
+//                     this.materialColor.b = parseInt(e.target.value);
+//                     blueValue.textContent = this.materialColor.b;
+//                     this.updateMaterialColor();
+//                     this.updateColorPreview();
+//                 });
+
+//                 alphaSlider.addEventListener('input', (e) => {
+//                     this.materialColor.a = parseFloat(e.target.value);
+//                     alphaValue.textContent = this.materialColor.a.toFixed(1);
+//                     this.updateMaterialColor();
+//                 });
+
+//                 this.updateColorPreview();
+            }
+
+            // 设置点击事件处理器
+            setupClickHandler() {
+                this.renderer.domElement.addEventListener('click', (event) => {
+                    if (!this.startSelectDianjiaomian) {
+                        return;
+                    }
+                    // 计算鼠标在屏幕上的标准化坐标
+                    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                    
+                    // 更新射线投射器
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+                    // 优先检测点击的mesh并打印其userData
+                    const intersects = this.raycaster.intersectObjects(this.meshes, true);
+                    if (intersects && intersects.length > 0) {
+                        const hit = intersects[0].object;
+                        console.log('点击命中对象:', hit, 'userData:', hit.geometry.userData);
+                        this.dianjiaomian = hit;
+                        this.startSelectDianjiaomian = false;
+                        this.dianjiaomian.material = color.red;
+                        // 记录点胶面高度（世界坐标Y）
+                        this.dianjiaomian.updateWorldMatrix(true, false);
+                        const localPoint = new THREE.Vector3().fromArray(this.dianjiaomian.geometry.attributes.position.array, 0);
+                        // 转换为世界坐标
+                        const worldPos = localPoint.clone().applyMatrix4(this.dianjiaomian.matrixWorld);
+                        gluePlaneWorldY = worldPos.y;
+                        this.load3DPointsData(() => {
+                            // 基于记录的数据生成立柱体（从溢胶槽到点胶面）
+                            if (gluePlaneWorldY !== null && overflowSlotChildren.length > 0) {
+                                // 分别生成支持柱和胶槽的盒状meshes
+                                this.generateSlotAndSupportMeshes(this.slotMeshes, overflowSlotChildren, gluePlaneWorldY);
+                                this.generateSlotAndSupportMeshes(this.pillarMeshes, supportPillarChildren, gluePlaneWorldY);
+                            }
+                            this.startCSG();
+                        });
+                    } else {
+                        if (this.dianjiaomian) {
+                            this.dianjiaomian.material = color.yellow;
+                        }
+                    }
+                    
+                    // 创建水平面（Y=0的平面）
+                    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+                    const intersectionPoint = new THREE.Vector3();
+                    
+                    // 计算射线与水平面的交点
+                    this.raycaster.ray.intersectPlane(plane, intersectionPoint);
+                    
+                    if (intersectionPoint) {
+                        // 存储点击坐标
+                        this.clickedPoints.push({
+                            x: intersectionPoint.x,
+                            y: intersectionPoint.y,
+                            z: intersectionPoint.z,
+                            timestamp: Date.now()
+                        });
+                        
+                        // 更新UI显示
+                        // this.updateCoordinateDisplay();
+                    }
+                });
+            }
+
+
+            // 更新坐标显示
+            updateCoordinateDisplay() {
+                const coordinateList = document.getElementById('coordinateList');
+                
+                if (this.clickedPoints.length === 0) {
+                    coordinateList.innerHTML = '<div>点击水平面获取坐标</div>';
+                    return;
+                }
+                
+                let html = '';
+                this.clickedPoints.forEach((point, index) => {
+                    html += `<div>P${index + 1}: (${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})</div>`;
+                });
+                
+                coordinateList.innerHTML = html;
+            }
+
+            // 导出坐标
+            exportCoordinates() {
+                if (this.clickedPoints.length === 0) {
+                    alert('没有坐标可导出');
+                    return;
+                }
+                
+                // 创建JSON格式的坐标数据
+                const coordinateData = {
+                    timestamp: new Date().toISOString(),
+                    count: this.clickedPoints.length,
+                    coordinates: this.clickedPoints
+                };
+                
+                // 创建下载链接
+                const dataStr = JSON.stringify(coordinateData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `coordinates_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 清理URL
+                URL.revokeObjectURL(url);
+                
+                console.log('坐标已导出:', coordinateData);
+            }
+
+            // 清除所有点击坐标
+            clearClickedPoints() {
+                // 清空数组
+                this.clickedPoints = [];
+                
+                console.log('已清除所有点击坐标');
+            }
+
+            // 读取3D点数据文件
+            async load3DPointsData(cb) {
+                try {
+                    const response = await fetch('./gltf/3d_points.txt');
+                    const text = await response.text();
+                    
+                    // 解析文本数据
+                    const lines = text.trim().split(/\r?\n/);
+                    this.points3DData = [];
+                    
+                    lines.forEach(line => {
+                        // 解析格式: "序号: x y z"
+                        const match = line.match(/^(\d+):\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)$/);
+                        if (match) {
+                            const x = parseFloat(match[2]);
+                            const y = parseFloat(match[3]);
+                            const z = parseFloat(match[4]);
+                            
+                            this.points3DData.push({ x, y, z });
+                        } else {
+                            console.log('无法解析的行:', line);
+                        }
+                    });
+                    
+                    
+                    // 创建线条
+                    this.create3DPointsLine();
+                    const cylinderMeshes = this.generateCylinders(this.points3DData, this.cylinderMeshes, this.width, this.height, 1);
+                    cb && cb();
+                    
+                } catch (error) {
+                    console.error('加载3D点数据失败:', error);
+                    alert('加载3D点数据失败，请检查文件路径');
+                }
+            }
+
+            // 创建3D点线条
+            create3DPointsLine() {
+                // 清除现有线条
+                if (this.points3DLine) {
+                    this.scene.remove(this.points3DLine);
+                }
+                if (this.offsetLine) {
+                    this.scene.remove(this.offsetLine);
+                }
+
+                if (this.points3DData.length < 2) {
+                    console.warn('3D点数据不足，无法创建线条');
+                    return;
+                }
+
+                // 创建原始线条几何体
+                const geometry = new THREE.BufferGeometry();
+                const vertices = new Float32Array(this.points3DData.length * 3);
+                
+                for (let i = 0; i < this.points3DData.length; i++) {
+                    vertices[i * 3] = this.points3DData[i].x;
+                    vertices[i * 3 + 1] = this.points3DData[i].y;
+                    vertices[i * 3 + 2] = this.points3DData[i].z;
+                }
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+                // 创建原始线条材质
+                const material = new THREE.LineBasicMaterial({ 
+                    color: 0xff0000,  // 红色
+                    linewidth: 2
+                });
+
+                // 创建原始线条对象
+                this.points3DLine = new THREE.Line(geometry, material);
+                this.points3DLine.rotation.x = -Math.PI / 2;
+                this.points3DLine.scale.x = 0.1;
+                this.points3DLine.scale.y = 0.1;
+                this.points3DLine.scale.z = 0.1;
+                this.points3DLine.position.x = 0;
+                this.points3DLine.position.y = 0;
+                this.points3DLine.position.z = 0;
+                
+                // 根据显示状态决定是否添加到场景
+                if (this.show3DPointsLine) {
+                    this.scene.add(this.points3DLine);
+                }
+                this.points3DLine.updateWorldMatrix(true, false);
+                
+                // 创建向内缩小的线圈
+                this.createOffsetLine();
+                
+                console.log('3D点线条创建完成');
+            }
+
+            // 创建向内缩小的线圈
+            createOffsetLine() {
+                if (this.points3DData.length < 3) {
+                    console.warn('点数据不足，无法创建向内缩小线圈');
+                    return;
+                }
+
+                // 先清除旧的向内缩小线圈
+                if (this.offsetLine) {
+                    this.scene.remove(this.offsetLine);
+                    this.offsetLine.geometry.dispose();
+                    this.offsetLine.material.dispose();
+                    this.offsetLine = null;
+                }
+
+                // 计算向内缩小的点
+                const offsetPoints = this.calculateOffsetPoints(this.points3DData, this.offsetDistance);
+                const topOffsetPoints = this.calculateOffsetPoints(this.points3DData, -0.35);
+                this.generateCylinders(offsetPoints, this.blueCylinderMeshes, this.blueWidth, this.blueHeight, -1);
+                this.blueCylinderMeshes.forEach(mesh => {
+                    mesh.visible = false;
+                });
+                this.topCylinderMeshes = [];
+                this.generateCylinders(topOffsetPoints, this.topCylinderMeshes, this.blueWidth, this.blueWidth, 1, glueNoClipMaterial);
+                this.topCylinderMeshes.forEach(mesh => {
+                    mesh.visible = false;
+                    mesh.position.y += 0.01425;
+                });
+            }
+            // 计算向内缩小的点 - 简单直接的方法
+            calculateOffsetPoints(points3DData, offsetDistance) {
+                const offsetPoints = [];
+                const center = this.calculateLineCenter(points3DData);
+                
+                for (let i = 0; i < points3DData.length; i++) {
+                    const currentPoint = points3DData[i];
+                    
+                    // 计算从当前点到中心的向量
+                    const toCenter = new THREE.Vector3(
+                        center.x - currentPoint.x,
+                        center.y - currentPoint.y,
+                        center.z - currentPoint.z
+                    );
+                    
+                    // 归一化
+                    toCenter.normalize();
+                    
+                    // 向内移动
+                    const offsetPoint = new THREE.Vector3(
+                        currentPoint.x + toCenter.x * offsetDistance,
+                        currentPoint.y + toCenter.y * offsetDistance,
+                        currentPoint.z + toCenter.z * offsetDistance
+                    );
+                    
+                    offsetPoints.push(offsetPoint);
+                }
+                
+                return offsetPoints;
+            }
+
+            // 计算线圈的中心点
+            calculateLineCenter(points3DData) {
+                let centerX = 0, centerY = 0, centerZ = 0;
+                
+                for (let i = 0; i < points3DData.length; i++) {
+                    centerX += points3DData[i].x;
+                    centerY += points3DData[i].y;
+                    centerZ += points3DData[i].z;
+                }
+                
+                return {
+                    x: centerX / points3DData.length,
+                    y: centerY / points3DData.length,
+                    z: centerZ / points3DData.length
+                };
+            }
+
+            // 清除3D点线条
+            clear3DPointsLine() {
+                if (this.points3DLine) {
+                    this.scene.remove(this.points3DLine);
+                    this.points3DLine = null;
+                }
+                if (this.offsetLine) {
+                    this.scene.remove(this.offsetLine);
+                    this.offsetLine = null;
+                }
+                this.points3DData = [];
+                console.log('3D点线条和向内缩小线圈已清除');
+            }
+
+            // 切换3D点线条显示状态
+            toggle3DPointsLineVisibility() {
+                this.show3DPointsLine = !this.show3DPointsLine;
+                
+                if (this.points3DLine) {
+                    if (this.show3DPointsLine) {
+                        this.scene.add(this.points3DLine);
+                    } else {
+                        this.scene.remove(this.points3DLine);
+                    }
+                }
+            }
+
+            // 窗口大小调整
+            setupResizeHandler() {
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());      
+                if (this.isFlying) {
+                    const now = performance.now();
+                    const t = Math.min(1, (now - this.flyStartTime) / this.flyDuration);
+                    // ease in-out
+                    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                    this.camera.position.lerpVectors(this.flyFromPos, this.flyToPos, ease);
+                    const target = new THREE.Vector3().lerpVectors(this.flyFromTarget, this.flyToTarget, ease);
+                    this.controls.target.copy(target);
+                    this.controls.update();
+                    if (t >= 1) this.isFlying = false;
+                }
+                
+                // 更新点胶动画
+                if (this.isAnimating && this.animationModel && this.points3DData.length > 0) {
+                    const now = performance.now();
+                    const elapsed = now - this.animationStartTime;
+                    this.animationProgress = Math.min(1, elapsed / this.animationDuration);
+                    
+                    // 计算当前位置
+                    const totalPoints = this.points3DData.length;
+                    const currentIndex = Math.floor(this.animationProgress * (totalPoints - 1));
+                    const nextIndex = Math.min(currentIndex + 1, totalPoints - 1);
+                    const segmentProgress = (this.animationProgress * (totalPoints - 1)) - currentIndex;
+                    
+                    // 获取当前点和下一个点
+                    const toVec3 = (p) => {
+                        const c = new THREE.Vector3(p.x, p.y, p.z);
+                        return c.applyMatrix4(this.points3DLine.matrixWorld);
+                    };
+                    
+                    const currentPoint = toVec3(this.points3DData[currentIndex]);
+                    const nextPoint = toVec3(this.points3DData[nextIndex]);
+                    
+                    // 插值计算位置
+                    const position = new THREE.Vector3().lerpVectors(currentPoint, nextPoint, segmentProgress);
+                    this.animationModel.position.copy(position);
+                    
+                    // 计算方向（朝向运动方向）
+                    if (nextIndex > currentIndex) {
+                        const direction = new THREE.Vector3().subVectors(nextPoint, currentPoint).normalize();
+                        if (direction.length() > 0.001) {
+                            // 使用lookAt方法让模型朝向运动方向
+                            const target = position.clone().add(direction);
+                            this.animationModel.lookAt(target);
+                        }
+                    }
+                    
+                    // 动画结束
+                    if (this.animationProgress >= 1) {
+                        this.isAnimating = false;
+                        console.log('点胶动画完成');
+                    }
+                }
+                
+                // 更新动画混合器
+                this.updateAnimations(0.016);
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            // 计算一组mesh的包围盒
+            getMeshesBox(meshes) {
+                const box = new THREE.Box3();
+                let initialized = false;
+                meshes.forEach(m => {
+                    const b = new THREE.Box3().setFromObject(m);
+                    if (!initialized) {
+                        box.copy(b);
+                        initialized = true;
+                    } else {
+                        box.union(b);
+                    }
+                });
+                return box;
+            }
+
+            // 相机飞行到包围盒
+            flyToBox(box) {
+                if (!box || !isFinite(box.max.x)) return;
+                const center = new THREE.Vector3();
+                const size = new THREE.Vector3();
+                box.getCenter(center);
+                box.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = this.camera.fov * Math.PI / 180;
+                const dist = (maxDim * 0.7) / Math.tan(fov / 2);
+                const dir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).normalize();
+                const toPos = center.clone().add(dir.multiplyScalar(dist));
+
+                // 记录飞行动画参数
+                this.flyFromPos.copy(this.camera.position);
+                this.flyToPos.copy(toPos);
+                this.flyFromTarget.copy(this.controls.target);
+                this.flyToTarget.copy(center);
+                this.flyStartTime = performance.now();
+                this.isFlying = true;
+            }
+
+            // 保存当前视角
+            saveCurrentView() {
+                // 弹出对话框让用户输入视角名称
+                const defaultName = `视角 ${this.savedViews.length + 1}`;
+                const viewName = prompt('请输入视角名称:', defaultName);
+                
+                // 如果用户取消，则不保存
+                if (viewName === null) {
+                    return;
+                }
+                
+                // 如果用户输入为空，使用默认名称
+                const finalName = viewName.trim() || defaultName;
+                
+                const view = {
+                    id: Date.now(),
+                    name: finalName,
+                    position: this.camera.position.clone(),
+                    target: this.controls.target.clone(),
+                    timestamp: new Date().toLocaleString('zh-CN')
+                };
+                this.savedViews.push(view);
+                this.updateViewList();
+                console.log('视角已保存:', view);
+            }
+
+            // 恢复视角
+            restoreView(viewIndex) {
+                if (viewIndex < 0 || viewIndex >= this.savedViews.length) return;
+                
+                const view = this.savedViews[viewIndex];
+                this.currentViewIndex = viewIndex;
+                
+                // 记录飞行动画参数
+                this.flyFromPos.copy(this.camera.position);
+                this.flyToPos.copy(view.position);
+                this.flyFromTarget.copy(this.controls.target);
+                this.flyToTarget.copy(view.target);
+                this.flyStartTime = performance.now();
+                this.isFlying = true;
+                
+                this.updateViewList();
+                console.log('正在恢复视角:', view.name);
+                if (view.name === '溢胶') {
+                    this.updateClippingPlanesFromBBox(true);
+                    this.cylinderMeshes.forEach(mesh => {
+                        mesh.visible = true;
+                    });
+                    this.csgResultMesh.visible = false;
+                    if (this.savedViews.length !== 5) {
+                        this.savedViews.push(JSON.parse(buttomYJD));
+                        this.savedViews.push(JSON.parse(topYJD));
+                        this.updateViewList();
+                    }
+                } else if (view.name === '胶槽立柱') {
+                    this.cylinderMeshes.forEach(mesh => {
+                        mesh.visible = false;
+                    });
+                    this.updateClippingPlanesFromBBox(false);
+                    this.csgResultMesh.visible = true;
+                    if (this.savedViews.length !== 3) {
+                        this.savedViews.splice(0, 3);
+                        this.updateViewList();
+                    }
+                }
+            }
+
+            // 删除视角
+            deleteView(viewIndex) {
+                if (viewIndex < 0 || viewIndex >= this.savedViews.length) return;
+                
+                this.savedViews.splice(viewIndex, 1);
+                if (this.currentViewIndex === viewIndex) {
+                    this.currentViewIndex = -1;
+                } else if (this.currentViewIndex > viewIndex) {
+                    this.currentViewIndex--;
+                }
+                
+                this.updateViewList();
+                console.log('视角已删除');
+            }
+//1.5 + 2 + 1 + 5 + 3 + 2 = 14.5
+            // 显示加载遮罩
+            showLoadingOverlay() {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('show');
+                }
+            }
+
+            // 隐藏加载遮罩
+            hideLoadingOverlay() {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.classList.remove('show');
+                }
+            }
+
+            // 更新视角列表UI
+            updateViewList() {
+                const viewList = document.getElementById('viewList');
+                
+                if (this.savedViews.length === 0) {
+                    viewList.innerHTML = '<div style="color: #999; font-size: 11px; padding: 5px;">暂无保存的视角</div>';
+                    return;
+                }
+                
+                let html = '';
+                this.savedViews.forEach((view, index) => {
+                    const isActive = index === this.currentViewIndex;
+                    html += `
+                        <div class="view-item ${isActive ? 'active' : ''}" data-index="${index}">
+                            <div class="view-item-header">
+                                <span class="view-item-name">${view.name}</span>
+                                <button class="view-item-delete" data-delete-index="${index}">删除</button>
+                            </div>
+                            <div style="font-size: 10px; color: ${isActive ? '#fff' : '#666'}; margin-top: 4px;">
+                                ${view.timestamp}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                viewList.innerHTML = html;
+                
+                // 绑定点击事件
+                viewList.querySelectorAll('.view-item').forEach(item => {
+                    const index = parseInt(item.getAttribute('data-index'));
+                    
+                    // 点击整个项恢复视角
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.classList.contains('view-item-delete')) {
+                            this.restoreView(index);
+                        }
+                    });
+                    
+                    // 删除按钮事件
+                    const deleteBtn = item.querySelector('.view-item-delete');
+                    if (deleteBtn) {
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.deleteView(index);
+                        });
+                    }
+                });
+            }
+        }
+        // 初始化应用
+        const generator = new PolylineCubeGenerator();
+        window.generator = generator; // 暴露到全局作用域，方便onclick访问
+
+        // 加载环境贴图
+        function loadEnvironmentMap(renderer) {
+            // 使用程序化生成的环境贴图
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            // 创建一个渐变环境贴图
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const context = canvas.getContext('2d');
+            
+            // 创建渐变
+            const gradient = context.createLinearGradient(0, 0, 0, size);
+            gradient.addColorStop(0, '#87CEEB'); // 天蓝色
+            gradient.addColorStop(0.5, '#FFFFFF'); // 白色
+            gradient.addColorStop(1, '#F0F8FF'); // 爱丽丝蓝
+            
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, size, size);
+            
+            // 转换为纹理
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            
+            // 生成环境贴图
+            const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+            return envMap;
+        }
+        
+        async function awaitMethod(timeout) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve();
+                }, timeout);
+            });
+        }
+    </script>
+</body>
+</html>

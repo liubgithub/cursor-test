@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>中国区域克里金插值图</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/oeo4b/kriging.js/kriging.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <style>
+        #map { height: 100vh; width: 100%; }
+        #controls {
+            position: absolute; top: 10px; right: 10px;
+            background: white; padding: 15px; border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 1000;
+            max-width: 300px;
+        }
+        button {
+            padding: 8px 15px; margin: 5px 0;
+            background: #4CAF50; color: white;
+            border: none; border-radius: 4px; cursor: pointer;
+        }
+        button:hover { background: #45a049; }
+        .info { margin-top: 10px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="controls">
+        <h3>中国区域插值演示</h3>
+        <button onclick="generateInterpolation()">生成中国区域插值图</button>
+        <button onclick="clearOverlay()">清除图层</button>
+        <div class="info">
+            <p>采样点: <span id="pointCount">0</span> 个</p>
+            <p>所有点均在中国境内</p>
+        </div>
+    </div>
+    <canvas id="krigingCanvas" style="display: none;"></canvas>
+
+    <script>
+        // 初始化地图，以中国为中心
+        var map = L.map('map').setView([35.0, 105.0], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let currentOverlay = null;
+        let chinaBoundary = null;
+        let samplePoints = [];
+
+        // 示例中国边界数据（简化版，实际使用时请替换为完整准确的GeoJSON）
+        const simplifiedChinaGeoJSON = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": { "name": "China" },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [73.5, 18.0], [135.0, 18.0], [135.0, 53.5], [73.5, 53.5], [73.5, 18.0]
+                        ]]
+                    }
+                }
+            ]
+        };
+
+        // 加载中国边界
+        function loadChinaBoundary() {
+            // 这里使用简化边界，实际项目请替换为完整的中国边界GeoJSON文件
+            chinaBoundary = simplifiedChinaGeoJSON;
+            
+            // 显示边界
+            L.geoJSON(chinaBoundary, {
+                style: { color: '#0000FF', weight: 2, fillOpacity: 0.1 }
+            }).addTo(map);
+            
+            console.log("中国边界已加载");
+        }
+
+        // 生成中国境内的随机点
+        function generateRandomPointsInChina(count) {
+            const points = [];
+            const bbox = turf.bbox(chinaBoundary);
+            
+            let attempts = 0;
+            const maxAttempts = count * 10; // 防止无限循环
+            
+            while (points.length < count && attempts < maxAttempts) {
+                attempts++;
+                
+                // 在边界框内生成随机点
+                const lng = bbox[0] + Math.random() * (bbox[2] - bbox[0]);
+                const lat = bbox[1] + Math.random() * (bbox[3] - bbox[1]);
+                
+                const point = turf.point([lng, lat]);
+                
+                // 检查点是否在中国边界内
+                const isInside = turf.booleanPointInPolygon(point, chinaBoundary.features[0]);
+                
+                if (isInside) {
+                    const value = Math.random() * 30 + 10; // 10-40之间的随机值
+                    points.push({
+                        lat: lat,
+                        lng: lng,
+                        value: value
+                    });
+                }
+            }
+            
+            console.log(`生成 ${points.length} 个点，尝试次数: ${attempts}`);
+            return points;
+        }
+
+        // 使用中国边界精确裁剪插值图
+        function clipWithChinaBoundary(canvas, boundary, xlim, ylim) {
+            return new Promise((resolve) => {
+                const clipCanvas = document.createElement('canvas');
+                clipCanvas.width = canvas.width;
+                clipCanvas.height = canvas.height;
+                const ctx = clipCanvas.getContext('2d');
+
+                // 绘制原始插值图
+                ctx.drawImage(canvas, 0, 0);
+
+                // 使用destination-in模式进行裁剪
+                ctx.globalCompositeOperation = 'destination-in';
+                
+                // 绘制中国边界作为蒙版
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                
+                const feature = boundary.features[0];
+                const coordinates = feature.geometry.coordinates;
+                
+                // 处理多边形坐标（支持多边形和多多边形）
+                if (feature.geometry.type === 'Polygon') {
+                    drawPolygonPath(ctx, coordinates[0], xlim, ylim, clipCanvas.width, clipCanvas.height);
+                } else if (feature.geometry.type === 'MultiPolygon') {
+                    coordinates.forEach(polygon => {
+                        drawPolygonPath(ctx, polygon[0], xlim, ylim, clipCanvas.width, clipCanvas.height);
+                    });
+                }
+                
+                ctx.fill();
+
+                resolve(clipCanvas.toDataURL("image/png"));
+            });
+        }
+
+        // 绘制多边形路径
+        function drawPolygonPath(ctx, coordinates, xlim, ylim, width, height) {
+            coordinates.forEach((coord, index) => {
+                const [lng, lat] = coord;
+                const x = (lng - xlim[0]) / (xlim[1] - xlim[0]) * width;
+                const y = height - (lat - ylim[0]) / (ylim[1] - ylim[0]) * height;
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+        }
+
+        // 生成插值图
+        window.generateInterpolation = async function() {
+            if (!chinaBoundary) {
+                alert("中国边界数据未加载，请稍候...");
+                return;
+            }
+
+            clearOverlay();
+
+            // 1. 生成中国境内的随机采样点
+            samplePoints = generateRandomPointsInChina(50);
+            
+            if (samplePoints.length === 0) {
+                alert("无法生成足够的采样点，请检查边界数据");
+                return;
+            }
+
+            // 2. 在地图上显示采样点
+            samplePoints.forEach(point => {
+                L.circle([point.lat, point.lng], {
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.7,
+                    radius: 30000
+                }).addTo(map).bindPopup(`值: ${point.value.toFixed(2)}`);
+            });
+
+            // 3. 准备克里金插值数据
+            const t = [], x = [], y = [];
+            samplePoints.forEach(point => {
+                t.push(point.value);
+                x.push(point.lng);
+                y.push(point.lat);
+            });
+
+            // 4. 获取中国边界范围
+            const chinaBounds = turf.bbox(chinaBoundary);
+            const xlim = [chinaBounds[0], chinaBounds[2]];
+            const ylim = [chinaBounds[1], chinaBounds[3]];
+
+            try {
+                // 5. 训练变异函数模型
+                const variogram = kriging.train(t, x, y, "exponential", 0, 100);
+
+                // 6. 生成插值网格
+                const grid = kriging.grid(
+                    [[
+                        [xlim[0], ylim[0]],
+                        [xlim[0], ylim[1]], 
+                        [xlim[1], ylim[1]],
+                        [xlim[1], ylim[0]]
+                    ]],
+                    variogram,
+                    (xlim[1] - xlim[0]) / 250
+                );
+
+                // 7. 在Canvas上绘制插值结果
+                const canvas = document.getElementById('krigingCanvas');
+                canvas.width = 800;
+                canvas.height = 800;
+                
+                // 红黄蓝绿青系颜色
+                const colors = [
+                    "#ff0000", "#ff8000", "#ffff00", "#80ff00", 
+                    "#00ff00", "#00ff80", "#00ffff", "#0080ff", 
+                    "#0000ff", "#8000ff", "#ff00ff"
+                ];
+                
+                kriging.plot(canvas, grid, xlim, ylim, colors);
+
+                // 8. 使用中国边界精确裁剪
+                const clippedImageUrl = await clipWithChinaBoundary(canvas, chinaBoundary, xlim, ylim);
+
+                // 9. 添加裁剪后的插值图到地图
+                currentOverlay = L.imageOverlay(clippedImageUrl, 
+                    [[ylim[0], xlim[0]], [ylim[1], xlim[1]]], 
+                    { opacity: 0.65 }
+                ).addTo(map);
+
+                // 更新点数显示
+                document.getElementById('pointCount').textContent = samplePoints.length;
+
+            } catch (error) {
+                console.error("插值计算错误:", error);
+                alert("插值计算失败: " + error.message);
+            }
+        };
+
+        // 清除覆盖层
+        function clearOverlay() {
+            if (currentOverlay) {
+                map.removeLayer(currentOverlay);
+                currentOverlay = null;
+            }
+            
+            // 清除采样点
+            map.eachLayer(layer => {
+                if (layer instanceof L.Circle) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            samplePoints = [];
+            document.getElementById('pointCount').textContent = '0';
+        }
+
+        // 页面加载后初始化
+        window.onload = function() {
+            loadChinaBoundary();
+        };
+    </script>
+</body>
+</html>

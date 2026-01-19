@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cesium 矢量瓦片（PBF）示例</title>
+    <!-- 若本地已部署 Cesium，请按需调整以下脚本路径 -->
+    <script src="http://localhost:8080/Build/CesiumUnminified/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        .panel {
+            position: absolute; left: 10px; top: 10px; z-index: 1000;
+            background: rgba(42,42,42,.85); color: #fff; padding: 12px 14px;
+            border-radius: 8px; min-width: 340px; backdrop-filter: blur(8px);
+        }
+        .panel h3 { margin: 0 0 10px; font-size: 16px; color: #74c0ff; }
+        .row { margin-bottom: 10px; }
+        .row label { display: block; margin-bottom: 6px; font-weight: bold; }
+        .row input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #555; border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; }
+        .btn { background: #0d6efd; border: none; color: #fff; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn.secondary { background: #6c757d; }
+        .hint { font-size: 12px; color: #cbd5e1; margin-top: 6px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+
+    <div class="panel">
+        <h3>矢量瓦片服务（PBF）</h3>
+        <div class="row">
+            <label>processId</label>
+            <input id="processId" placeholder="示例：9da3..._6365" />
+        </div>
+        <div class="row">
+            <label>Authorization（需包含 Bearer 前缀）</label>
+            <input id="authToken" placeholder="Bearer xxxxx" />
+            <div class="hint">接口：/api/data-product/vector-tms/tile/{type}/{processId}/{z}/{x}/{y}，type 固定为 4。</div>
+        </div>
+        <div class="row">
+            <button class="btn" id="btnLoad">加载/替换矢量瓦片</button>
+            <button class="btn secondary" id="btnRemove">移除图层</button>
+        </div>
+    </div>
+
+    <script>
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            timeline: false,
+            animation: false,
+            baseLayerPicker: true,
+            infoBox: false,
+            selectionIndicator: false
+        });
+
+        const targetDestination = Cesium.Cartesian3.fromDegrees(114.41, 30.54, 5000);
+        viewer.camera.setView({ destination: targetDestination });
+
+        let vectorLayer = null;
+
+        function buildVectorUrl(processId) {
+            // https://openge.org.cn/api/data-product/vector-tms/tile/{type}/{processId}/{z}/{x}/{y}
+            const type = 4; // 根据文档固定为 4
+            return `https://openge.org.cn/api/data-product/vector-tms/tile/${type}/${encodeURIComponent(processId)}/{z}/{x}/{y}`;
+        }
+
+        async function addOrReplaceVectorLayer() {
+            const processId = '9da3743b-eaf9-47a7-81f8-b59428fc38a0_whu01_buildtop_1761882716328_6365';
+            const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjQzNiwidXNlcl9uYW1lIjoic3dzazMzIiwic2NvcGUiOlsid2ViIl0sImV4cCI6MTc2MTkzODI3NiwidXVpZCI6IjlkYTM3NDNiLWVhZjktNDdhNy04MWY4LWI1OTQyOGZjMzhhMCIsImF1dGhvcml0aWVzIjpbIjEiXSwianRpIjoiQWVOVkxaVkxIWWZqYzZwaEVxa28td0VDcVVvIiwiY2xpZW50X2lkIjoidGVzdCIsInVzZXJuYW1lIjoic3dzazMzIn0.0rL6Dlzn3Fn1-zkl7HtxzdPhC2CFOdDSe8PVIvWzQjo';
+            
+            if (!processId) { alert('请输入 processId'); return; }
+            if (!token) { alert('请输入 Authorization（包含 Bearer 前缀）'); return; }
+
+            // 以 UrlTemplateImageryProvider 方式请求。如果后端返回的是 PNG/JPEG 光栅切片，此方式可直接显示；
+            // 若返回 PBF 矢量瓦片，需配合 Cesium 的矢量瓦片渲染扩展（例如 VectorTileImageryProvider 插件）。
+            const resource = new Cesium.Resource({
+                url: buildVectorUrl(processId),
+                headers: { 'Authorization': token }
+            });
+
+            const provider = new Cesium.UrlTemplateImageryProvider({
+                url: resource,
+                tilingScheme: new Cesium.WebMercatorTilingScheme(),
+                minimumLevel: 0,
+                maximumLevel: 20,
+                rectangle: Cesium.Rectangle.MAX_VALUE
+            });
+
+            if (vectorLayer) {
+                viewer.imageryLayers.remove(vectorLayer, true);
+                vectorLayer = null;
+                await new Promise(r => setTimeout(r, 30));
+            }
+            vectorLayer = viewer.imageryLayers.addImageryProvider(provider);
+            viewer.camera.flyTo({ destination: targetDestination, duration: 0.8 });
+        }
+
+        function removeVectorLayer() {
+            if (vectorLayer) {
+                viewer.imageryLayers.remove(vectorLayer, true);
+                vectorLayer = null;
+            }
+        }
+
+        document.getElementById('btnLoad').addEventListener('click', addOrReplaceVectorLayer);
+        document.getElementById('btnRemove').addEventListener('click', removeVectorLayer);
+        addOrReplaceVectorLayer();
+
+        // 可选：演示使用默认值（留空不自动加载）
+        // document.getElementById('processId').value = '9da3743b-eaf9-47a7-81f8-b59428fc38a0_whu01_buildtop_1761882716328_6365';
+        // document.getElementById('authToken').value = 'Bearer <your-token>';
+    </script>
+</body>
+</html>
+
+

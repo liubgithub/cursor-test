@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向内缩小线圈功能测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .test-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-info h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .test-info p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .feature-list {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .feature-list h3 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+            color: #555;
+        }
+        .test-link {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .test-link:hover {
+            background: #45a049;
+        }
+        .code-block {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border-left: 3px solid #007bff;
+        }
+        .image-description {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .image-description h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h2>蓝色半圆柱体功能完成</h2>
+        <p>根据蓝色向内缩小线圈，生成了对应的半圆柱体模型，尺寸比红色半圆柱体小，凸起方向向下。</p>
+        
+        <div class="image-description">
+            <h3>🔧 蓝色半圆柱体特性：</h3>
+            <p>基于蓝色向内缩小线圈生成的半圆柱体：</p>
+            <ul>
+                <li><strong>基于蓝色线</strong>：使用向内缩小的蓝色线圈作为路径</li>
+                <li><strong>尺寸更小</strong>：长半轴和短半轴都比红色半圆柱体小</li>
+                <li><strong>向下凸起</strong>：半圆柱体的凸起方向向下</li>
+                <li><strong>蓝色材质</strong>：使用蓝色半透明材质</li>
+                <li><strong>独立控制</strong>：可以独立控制显示和尺寸参数</li>
+            </ul>
+        </div>
+        
+        <div class="feature-list">
+            <h3>🎯 蓝色半圆柱体功能：</h3>
+            <ul>
+                <li>✅ <strong>自动生成</strong>：创建蓝色线圈时自动生成对应的半圆柱体</li>
+                <li>✅ <strong>尺寸可调</strong>：可以调整蓝色宽度和高度参数</li>
+                <li>✅ <strong>独立显示</strong>：可以独立控制蓝色半圆柱体的显示/隐藏</li>
+                <li>✅ <strong>向下凸起</strong>：半圆柱体的凸起方向向下</li>
+                <li>✅ <strong>蓝色材质</strong>：使用蓝色半透明物理材质</li>
+                <li>✅ <strong>实时更新</strong>：调整参数时立即更新模型</li>
+            </ul>
+        </div>
+        
+        <div class="feature-list">
+            <h3>🔧 技术实现：</h3>
+            <ul>
+                <li><strong>路径生成</strong>：基于向内缩小的蓝色线圈点数据</li>
+                <li><strong>横截面</strong>：创建椭圆横截面，尺寸比红色小</li>
+                <li><strong>向下凸起</strong>：使用负值y坐标实现向下凸起</li>
+                <li><strong>几何体生成</strong>：连接相邻横截面形成连续几何体</li>
+                <li><strong>材质设置</strong>：使用蓝色半透明物理材质</li>
+                <li><strong>内存管理</strong>：正确释放旧几何体和材质</li>
+            </ul>
+        </div>
+        
+        <div class="code-block">
+            <strong>蓝色半圆柱体核心参数：</strong><br>
+            // 尺寸参数（比红色小）<br>
+            this.blueWidth = 0.08;  // 蓝色宽度（红色0.1）<br>
+            this.blueHeight = 0.04; // 蓝色高度（红色0.05）<br>
+            // 向下凸起<br>
+            const y = -Math.sin(angle) * verticalRadius; // 负值表示向下<br>
+            // 蓝色材质<br>
+            color: 0x0066ff, // 蓝色
+        </div>
+        
+        <p><strong>使用方法：</strong></p>
+        <ol>
+            <li>点击下面的链接打开胶体模拟生成器</li>
+            <li>点击"加载3D点数据"按钮加载数据</li>
+            <li>观察红色原始线圈和蓝色向内缩小线圈</li>
+            <li>观察红色半圆柱体和蓝色半圆柱体</li>
+            <li>在"蓝色半圆柱体参数"组中调整尺寸参数</li>
+            <li>使用复选框控制蓝色半圆柱体的显示</li>
+        </ol>
+        
+        <a href="polyline_cube_generator.html" class="test-link">打开胶体模拟生成器</a>
+    </div>
+</body>
+</html>

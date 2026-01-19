@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Textured Trapezoid with WebGL - Manual Texture Interpolation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            display: block;
+            margin: 20px auto;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+        .coordinates {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>带纹理的梯形 - WebGL实现（手动纹理插值）</h1>
+    
+    <div class="controls">
+        <div class="coordinates">
+            <h3>梯形顶点坐标</h3>
+            <p>A: (-0.3, 0.3)</p>
+            <p>B: (0.3, 0.3)</p>
+            <p>C: (0.8, -0.3)</p>
+            <p>D: (-0.8, -0.3)</p>
+        </div>
+    </div>
+    
+    <canvas id="webgl-canvas" width="800" height="600"></canvas>
+
+    <script>
+        // 顶点着色器源码（简化版本）
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            attribute vec2 a_texCoord;
+            
+            varying vec2 v_texCoord;
+            varying vec2 v_worldPos;
+            
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                v_texCoord = a_texCoord;
+                v_worldPos = a_position;
+            }
+        `;
+
+        // 片段着色器源码（手动计算纹理坐标）
+        const fragmentShaderSource = `
+            precision mediump float;
+            
+            uniform sampler2D u_texture;
+            varying vec2 v_texCoord;
+            varying vec2 v_worldPos;
+            
+            void main() {
+                // 梯形的四个顶点
+                vec2 A = vec2(-0.3, 0.3);   // 左上
+                vec2 B = vec2(0.3, 0.3);    // 右上
+                vec2 C = vec2(0.8, -0.3);   // 右下
+                vec2 D = vec2(-0.8, -0.3);  // 左下
+                
+                vec2 pos = v_worldPos;
+                
+                // 计算当前点在梯形中的相对位置
+                // 首先计算垂直方向的插值参数 t (0 = 上边, 1 = 下边)
+                float t = (pos.y - 0.3) / (-0.3 - 0.3);  // 从上到下的插值参数
+                t = clamp(t, 0.0, 1.0);
+                
+                // 计算当前高度对应的左右边界
+                vec2 leftEdge = mix(A, D, t);    // 左边界插值
+                vec2 rightEdge = mix(B, C, t);   // 右边界插值
+                
+                // 计算水平方向的插值参数 s (0 = 左边, 1 = 右边)
+                float s = (pos.x - leftEdge.x) / (rightEdge.x - leftEdge.x);
+                s = clamp(s, 0.0, 1.0);
+                
+                // 手动计算纹理坐标插值
+                // 四个顶点对应的纹理坐标
+                vec2 texA = vec2(0.0, 1.0);  // A -> 左上角
+                vec2 texB = vec2(1.0, 1.0);  // B -> 右上角
+                vec2 texC = vec2(1.0, 0.0);  // C -> 右下角
+                vec2 texD = vec2(0.0, 0.0);  // D -> 左下角
+                
+                // 在上边界插值 (A到B)
+                vec2 topTexCoord = mix(texA, texB, s);
+                
+                // 在下边界插值 (D到C)
+                vec2 bottomTexCoord = mix(texD, texC, s);
+                
+                // 在垂直方向插值 (top到bottom)
+                vec2 finalTexCoord = mix(topTexCoord, bottomTexCoord, t);
+                
+                // 确保纹理坐标在有效范围内
+                finalTexCoord = clamp(finalTexCoord, 0.0, 1.0);
+                
+                gl_FragColor = texture2D(u_texture, finalTexCoord);
+            }
+        `;
+
+        // 创建着色器
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Error compiling shader:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+
+        // 创建着色器程序
+        function createShaderProgram(gl, vertexShaderSource, fragmentShaderSource) {
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Error linking program:', gl.getProgramInfoLog(program));
+                return null;
+            }
+            
+            return program;
+        }
+
+        // 创建网格纹理
+        function createGridTexture(gl) {
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制网格图案，更容易看出纹理插值效果
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 256, 256);
+            
+            // 绘制网格线
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            
+            // 垂直线
+            for (let x = 0; x <= 256; x += 32) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 256);
+                ctx.stroke();
+            }
+            
+            // 水平线
+            for (let y = 0; y <= 256; y += 32) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(256, y);
+                ctx.stroke();
+            }
+            
+            // 添加一些标识文本和图案
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('手动纹理', 128, 128);
+            ctx.fillText('插值测试', 128, 150);
+            
+            // 添加一些彩色方块以便观察变形
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(32, 32, 32, 32);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(192, 32, 32, 32);
+            ctx.fillStyle = '#0000ff';
+            ctx.fillRect(32, 192, 32, 32);
+            ctx.fillStyle = '#ffff00';
+            ctx.fillRect(192, 192, 32, 32);
+            
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            
+            return texture;
+        }
+
+        // 主函数
+        function main() {
+            const canvas = document.getElementById('webgl-canvas');
+            const gl = canvas.getContext('webgl');
+            
+            if (!gl) {
+                console.error('WebGL not supported');
+                return;
+            }
+
+            // 创建着色器程序
+            const program = createShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+            if (!program) return;
+
+            // 获取属性和uniform位置
+            const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+            const texCoordAttributeLocation = gl.getAttribLocation(program, 'a_texCoord');
+            const textureUniformLocation = gl.getUniformLocation(program, 'u_texture');
+
+            // 梯形的四个顶点坐标 (A, B, C, D)
+            const trapezoidVertices = [
+                -0.3,  0.3,  // A (左上)
+                 0.3,  0.3,  // B (右上)
+                 0.8, -0.3,  // C (右下)
+                -0.8, -0.3   // D (左下)
+            ];
+
+            // 纹理坐标（在片段着色器中将被重新计算）
+            const textureCoords = [
+                0.0, 1.0,  // A -> 左上角
+                1.0, 1.0,  // B -> 右上角
+                1.0, 0.0,  // C -> 右下角
+                0.0, 0.0   // D -> 左下角
+            ];
+
+            // 索引数组
+            const indices = [
+                0, 1, 2,  // 第一个三角形 (A-B-C)
+                0, 2, 3   // 第二个三角形 (A-C-D)
+            ];
+
+            // 创建并绑定顶点缓冲区
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(trapezoidVertices), gl.STATIC_DRAW);
+
+            // 创建并绑定纹理坐标缓冲区
+            const texCoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+
+            // 创建并绑定索引缓冲区
+            const indexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+            // 创建网格纹理
+            const texture = createGridTexture(gl);
+
+            // 渲染函数
+            function render() {
+                // 设置视口
+                gl.viewport(0, 0, canvas.width, canvas.height);
+                
+                // 清除画布
+                gl.clearColor(0.9, 0.9, 0.9, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                // 使用着色器程序
+                gl.useProgram(program);
+
+                // 绑定位置属性
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.enableVertexAttribArray(positionAttributeLocation);
+                gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+                // 绑定纹理坐标属性
+                gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+                gl.enableVertexAttribArray(texCoordAttributeLocation);
+                gl.vertexAttribPointer(texCoordAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+                // 绑定纹理
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.uniform1i(textureUniformLocation, 0);
+
+                // 绑定索引缓冲区并绘制
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+            }
+
+            // 开始渲染
+            render();
+        }
+
+        // 页面加载完成后执行
+        window.addEventListener('load', main);
+    </script>
+</body>
+</html>

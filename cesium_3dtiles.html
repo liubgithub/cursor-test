@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cesium 3D Tiles 服务加载示例</title>
+    <script src="http://localhost:8080/Build/CesiumUnminified/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <style>
+        html, body, #cesiumContainer {
+            width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(42, 42, 42, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            min-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-sizing: border-box;
+        }
+        
+        .control-group input::placeholder {
+            color: #ccc;
+        }
+        
+        .btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #005a9e;
+        }
+        
+        .btn.danger {
+            background: #dc3545;
+        }
+        
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .status.success {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid #28a745;
+            color: #28a745;
+        }
+        
+        .status.error {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+        
+        .status.info {
+            background: rgba(23, 162, 184, 0.2);
+            border: 1px solid #17a2b8;
+            color: #17a2b8;
+        }
+        
+        .tileset-info {
+            margin-top: 10px;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div id="cesiumContainer"></div>
+    
+    <div class="control-panel">
+        <h3 style="margin-top: 0; color: #007acc;">3D Tiles 服务加载器</h3>
+        
+        <div class="control-group">
+            <label for="tilesetUrl">3D Tiles 服务URL:</label>
+            <input type="text" id="tilesetUrl" placeholder="输入3D Tiles服务URL" 
+                   value="https://sandcastle.cesium.com/SampleData/Cesium3DTiles/Tilesets/Tileset/tileset.json">
+        </div>
+        
+        <div class="control-group">
+            <label for="accessToken">Cesium Ion Access Token (可选):</label>
+            <input type="text" id="accessToken" placeholder="输入您的Cesium Ion Access Token">
+        </div>
+        
+        <div class="control-group">
+            <button class="btn" onclick="loadTileset()">加载3D Tiles</button>
+            <button class="btn danger" onclick="removeTileset()">移除Tileset</button>
+        </div>
+        
+        <div class="control-group">
+            <label>预设服务:</label>
+            <select id="presetServices" onchange="loadPresetService()">
+                <option value="">选择预设服务...</option>
+                <option value="cesium-sample">Cesium示例Tileset</option>
+                <option value="new-york">纽约建筑</option>
+                <option value="london">伦敦建筑</option>
+                <option value="custom">自定义URL</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="showBoundingVolume" checked>
+                <label for="showBoundingVolume">显示边界框</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showPickPosition">
+                <label for="showPickPosition">显示拾取位置</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="enableFog" checked>
+                <label for="enableFog">启用雾效</label>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label for="heightOffset">高度偏移:</label>
+            <input type="range" id="heightOffset" min="-100" max="100" value="0" 
+                   oninput="updateHeightOffset(this.value)">
+            <span id="heightOffsetValue">0</span> 米
+        </div>
+        
+        <div class="control-group">
+            <label for="scale">缩放比例:</label>
+            <input type="range" id="scale" min="0.1" max="5" step="0.1" value="1" 
+                   oninput="updateScale(this.value)">
+            <span id="scaleValue">1.0</span>
+        </div>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        <div id="tilesetInfo" class="tileset-info" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 设置Cesium Ion访问令牌
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzMDhiNDA0Yy0zZjM2LTQyN2EtODdhMS1jNGI0YzhkOGNiOTIiLCJpZCI6OTYyOCwiaWF0IjoxNzQyOTgwNzQ4fQ.UzWRyt0nN4tiqqHca6VFXnm0MOsT5x5o1gSR65S6kjw';
+        
+        // 创建Cesium Viewer
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            timeline: false,
+            animation: false,
+            baseLayerPicker: false,
+            fullscreenButton: false,
+            vrButton: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            sceneModePicker: false,
+            selectionIndicator: false,
+            navigationHelpButton: false,
+            navigationInstructionsInitiallyVisible: false
+        });
+        
+        // 设置初始相机位置 - 经度114，纬度30
+        viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(114.0, 30.0, 1000),
+            orientation: {
+                heading: Cesium.Math.toRadians(0.0),
+                pitch: Cesium.Math.toRadians(-45.0),
+            }
+        });
+        
+        let currentTileset = null;
+        let boundingVolumeEntity = null;
+        let pickPositionEntity = null;
+        
+        // 预设服务URL
+        const presetServices = {
+            'myservice': 'http://localhost/ply23dtiles/hefeng/tileset.json',
+            'cesium-sample': 'https://sandcastle.cesium.com/SampleData/Cesium3DTiles/Tilesets/Tileset/tileset.json',
+            'new-york': 'https://sandcastle.cesium.com/SampleData/Cesium3DTiles/Tilesets/NewYork/tileset.json',
+            'london': 'https://sandcastle.cesium.com/SampleData/Cesium3DTiles/Tilesets/London/tileset.json'
+        };
+        
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 更新Tileset信息显示
+        function updateTilesetInfo(tileset) {
+            const infoDiv = document.getElementById('tilesetInfo');
+            if (tileset) {
+                const boundingSphere = tileset.boundingSphere;
+                const center = Cesium.Cartographic.fromCartesian(boundingSphere.center);
+                
+                // infoDiv.innerHTML = `
+                //     <strong>Tileset信息:</strong><br>
+                //     中心位置: ${Cesium.Math.toDegrees(center.longitude).toFixed(6)}, ${Cesium.Math.toDegrees(center.latitude).toFixed(6)}<br>
+                //     半径: ${boundingSphere.radius.toFixed(2)} 米<br>
+                //     高度偏移: ${tileset.heightOffset} 米<br>
+                //     缩放: ${tileset.scale.toFixed(2)}
+                // `;
+                infoDiv.style.display = 'block';
+            } else {
+                infoDiv.style.display = 'none';
+            }
+        }
+        
+        // 加载3D Tiles
+        async function loadTileset() {
+            // const url = document.getElementById('tilesetUrl').value.trim();
+            const url = 'http://localhost/ply23dtiles/xg/tileset.json';
+            const accessToken = document.getElementById('accessToken').value.trim();
+            
+            if (!url) {
+                showStatus('请输入3D Tiles服务URL', 'error');
+                return;
+            }
+            
+            // 移除现有的tileset
+            removeTileset();
+            
+            showStatus('正在加载3D Tiles...', 'info');
+            
+            try {
+                // 设置访问令牌（如果提供）
+                if (accessToken) {
+                    Cesium.Ion.defaultAccessToken = accessToken;
+                }
+                
+                // 创建3D Tileset
+                const tileset = await Cesium.Cesium3DTileset.fromUrl(
+                   url
+                );
+                
+                // 此时 tileset 已经通过 await fromUrl 加载完成，可以直接使用 boundingSphere
+                // 先给一个默认白色，避免加载瞬间闪烁
+                tileset.style = new Cesium.Cesium3DTileStyle({
+                    color: "color('white')"
+                });
+                
+                // 基于高度的颜色分段（蓝 -> 绿 -> 黄 -> 红）
+                // 注意：在 3D Tiles 样式里，${POSITION}.z 是 tileset 局部坐标系下的 z 分量，不是世界坐标高度；
+                // 而 boundingRegion 的最小/最大高程是世界高度（Cartographic.height）。两者坐标系不同，不能直接比较，
+                // 否则会出现你现在看到的“全部纯红”的情况。
+                //
+                // 对于这种点云，通常 tileset 的局部 z 轴已经对齐世界“向上”方向，
+                // 因此用包围球在本地坐标下的 z 范围 [-radius, radius] 做归一化是比较稳妥的方式。
+                const ratio = 0.1;
+                const bs = tileset.boundingSphere;
+                const minHeight = -bs.radius * ratio;
+                const maxHeight = bs.radius * ratio;
+                const heightRange = Math.max(maxHeight - minHeight, 0.1);
+                
+                // 基于局部 z 的 0~1 归一化表达式 t
+                const posLocalZ = '${POSITION}.z';
+                const tExpr = `clamp((${posLocalZ} - ${minHeight}) / ${heightRange}, 0.0, 1.0)`;
+                
+                // 构造蓝->绿->黄->红的连续渐变表达式：
+                // 0~0.33: 蓝 -> 绿
+                // 0.33~0.66: 绿 -> 黄
+                // 0.66~1.0: 黄 -> 红
+                const colorExpr = `
+                    mix(
+                        mix(
+                            color('blue'),
+                            color('green'),
+                            clamp(${tExpr} * 3.0, 0.0, 1.0)
+                        ),
+                        mix(
+                            color('yellow'),
+                            color('red'),
+                            clamp((${tExpr} - 0.66) * 3.0, 0.0, 1.0)
+                        ),
+                        clamp((${tExpr} - 0.33) * 3.0, 0.0, 1.0)
+                    )
+                `;
+                
+                tileset.style = new Cesium.Cesium3DTileStyle({
+                    color: colorExpr
+                });
+                
+                
+                // 设置点云点的大小（如果支持）
+                tileset.pointSize = 2.0;
+                
+                viewer.scene.primitives.add(tileset);
+                currentTileset = tileset;
+                
+                // 更新tileset信息
+                if (tileset.readyPromise) {
+                    tileset.readyPromise.then(function() {
+                        updateTilesetInfo(tileset);
+                        showStatus('3D Tiles加载成功!', 'success');
+                        
+                        // 如果边界框复选框被选中，显示边界框
+                        if (document.getElementById('showBoundingVolume').checked) {
+                            showBoundingVolume(tileset);
+                        }
+                    }).catch(function(error) {
+                        console.warn('Tileset readyPromise error:', error);
+                        showStatus('3D Tiles加载完成，但部分功能可能不可用', 'info');
+                    });
+                } else {
+                    // 如果readyPromise不存在，延迟执行
+                    setTimeout(function() {
+                        updateTilesetInfo(tileset);
+                        showStatus('3D Tiles加载成功!', 'success');
+                    }, 1000);
+                }
+                
+                viewer.flyTo(tileset);
+                
+            } catch (error) {
+                showStatus('创建Tileset失败: ' + error.message, 'error');
+                console.error('Tileset creation error:', error);
+            }
+        }
+        
+        // 移除3D Tiles
+        function removeTileset() {
+            if (currentTileset) {
+                viewer.scene.primitives.remove(currentTileset);
+                currentTileset = null;
+            }
+            
+            if (boundingVolumeEntity) {
+                viewer.entities.remove(boundingVolumeEntity);
+                boundingVolumeEntity = null;
+            }
+            
+            if (pickPositionEntity) {
+                viewer.entities.remove(pickPositionEntity);
+                pickPositionEntity = null;
+            }
+            
+            document.getElementById('tilesetInfo').style.display = 'none';
+            showStatus('已移除3D Tiles', 'info');
+        }
+        
+        // 加载预设服务
+        function loadPresetService() {
+            const preset = document.getElementById('presetServices').value;
+            if (preset && preset !== 'custom') {
+                document.getElementById('tilesetUrl').value = presetServices[preset];
+                loadTileset();
+            }
+        }
+        
+        // 显示边界框
+        function showBoundingVolume(tileset) {
+            if (boundingVolumeEntity) {
+                viewer.entities.remove(boundingVolumeEntity);
+            }
+            
+            const boundingSphere = tileset.boundingSphere;
+            boundingVolumeEntity = viewer.entities.add({
+                position: boundingSphere.center,
+                ellipsoid: {
+                    radii: new Cesium.Cartesian3(boundingSphere.radius, boundingSphere.radius, boundingSphere.radius),
+                    material: Cesium.Color.YELLOW.withAlpha(0.3),
+                    outline: true,
+                    outlineColor: Cesium.Color.YELLOW
+                }
+            });
+        }
+        
+        // 更新高度偏移
+        function updateHeightOffset(value) {
+            document.getElementById('heightOffsetValue').textContent = value;
+            if (currentTileset) {
+                const heightOffset = -140;
+                const boundingSphere = currentTileset.boundingSphere;
+                const cartographic = Cesium.Cartographic.fromCartesian(boundingSphere.center);
+                const surface = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, 0.0);
+                const offset = Cesium.Cartesian3.fromRadians(cartographic.longitude, cartographic.latitude, heightOffset);
+                const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
+                currentTileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
+                updateTilesetInfo(currentTileset);
+            }
+        }
+        
+        // 更新缩放比例
+        function updateScale(value) {
+            document.getElementById('scaleValue').textContent = value;
+            if (currentTileset) {
+                currentTileset.scale = parseFloat(value);
+                updateTilesetInfo(currentTileset);
+            }
+        }
+        
+        // 监听边界框显示复选框
+        document.getElementById('showBoundingVolume').addEventListener('change', function() {
+            if (this.checked && currentTileset) {
+                showBoundingVolume(currentTileset);
+            } else if (boundingVolumeEntity) {
+                viewer.entities.remove(boundingVolumeEntity);
+                boundingVolumeEntity = null;
+            }
+        });
+        
+        // 监听拾取位置复选框
+        document.getElementById('showPickPosition').addEventListener('change', function() {
+            if (this.checked) {
+                viewer.cesiumWidget.screenSpaceEventHandler.setInputAction(function(event) {
+                    const pickedPosition = viewer.camera.pickEllipsoid(event.position, viewer.scene.globe.ellipsoid);
+                    if (pickedPosition) {
+                        if (pickPositionEntity) {
+                            viewer.entities.remove(pickPositionEntity);
+                        }
+                        pickPositionEntity = viewer.entities.add({
+                            position: pickedPosition,
+                            point: {
+                                pixelSize: 10,
+                                color: Cesium.Color.RED,
+                                outlineColor: Cesium.Color.WHITE,
+                                outlineWidth: 2,
+                                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                            },
+                            label: {
+                                text: '拾取位置',
+                                font: '12pt sans-serif',
+                                pixelOffset: new Cesium.Cartesian2(0, -40),
+                                fillColor: Cesium.Color.WHITE,
+                                outlineColor: Cesium.Color.BLACK,
+                                outlineWidth: 2,
+                                style: Cesium.LabelStyle.FILL_AND_OUTLINE
+                            }
+                        });
+                    }
+                }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+            } else {
+                viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+                if (pickPositionEntity) {
+                    viewer.entities.remove(pickPositionEntity);
+                    pickPositionEntity = null;
+                }
+            }
+        });
+        
+        // 监听雾效复选框
+        document.getElementById('enableFog').addEventListener('change', function() {
+            viewer.scene.fog.enabled = this.checked;
+        });
+        
+        // 初始化时显示欢迎信息
+        showStatus('欢迎使用Cesium 3D Tiles加载器! 请选择预设服务或输入自定义URL', 'info');
+        
+        // 添加键盘快捷键
+        document.addEventListener('keydown', function(event) {
+            if (event.ctrlKey) {
+                switch(event.key) {
+                    case 'l':
+                        event.preventDefault();
+                        loadTileset();
+                        break;
+                    case 'r':
+                        event.preventDefault();
+                        removeTileset();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

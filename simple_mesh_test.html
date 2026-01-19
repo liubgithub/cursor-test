@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>平面Mesh侧面几何体测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info">
+            <h3>平面Mesh侧面几何体测试</h3>
+            <p>蓝色: mesh1 (原始平面)</p>
+            <p>红色: mesh2 (克隆+平移平面)</p>
+            <p>绿色: 生成的侧面几何体</p>
+        </div>
+        
+        <div id="controls">
+            <h4>控制面板</h4>
+            <div>
+                <label>平移距离: </label>
+                <input type="range" id="offsetSlider" min="1" max="10" value="3" step="0.5">
+                <span id="offsetValue">3</span>
+            </div>
+            <div>
+                <button id="generateBtn">生成侧面</button>
+                <button id="debugBtn">调试信息</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./lib/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        class SimpleMeshSideGenerator {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.mesh1 = null;
+                this.mesh2 = null;
+                this.sideMesh = null;
+                this.offset = 3;
+                
+                this.init();
+                this.setupControls();
+                this.animate();
+            }
+
+            init() {
+                // 设置渲染器
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0x222222);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('container').appendChild(this.renderer.domElement);
+
+                // 设置相机
+                this.camera.position.set(5, 5, 5);
+                this.camera.lookAt(0, 0, 0);
+
+                // 添加光源
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 10, 5);
+                directionalLight.castShadow = true;
+                this.scene.add(directionalLight);
+
+                // 创建原始mesh
+                this.createOriginalMesh();
+                
+                // 添加网格辅助
+                const gridHelper = new THREE.GridHelper(20, 20);
+                this.scene.add(gridHelper);
+            }
+
+            createOriginalMesh() {
+                // 使用Three.js内置的平面几何体
+                const geometry = new THREE.PlaneGeometry(2, 2);
+                
+                // 创建mesh1
+                const material1 = new THREE.MeshLambertMaterial({ 
+                    color: 0x0066cc,
+                    side: THREE.DoubleSide
+                });
+                this.mesh1 = new THREE.Mesh(geometry, material1);
+                this.mesh1.position.y = 0;
+                this.scene.add(this.mesh1);
+
+                // 创建mesh2（克隆并平移）
+                this.createClonedMesh();
+                
+                // 自动生成侧面
+                this.generateSideGeometry();
+            }
+
+            createClonedMesh() {
+                if (this.mesh2) {
+                    this.scene.remove(this.mesh2);
+                }
+
+                const material2 = new THREE.MeshLambertMaterial({ 
+                    color: 0xcc0000,
+                    side: THREE.DoubleSide
+                });
+                this.mesh2 = this.mesh1.clone();
+                this.mesh2.material = material2;
+                this.mesh2.position.y = this.offset;
+                this.scene.add(this.mesh2);
+                
+                console.log('Mesh1 position:', this.mesh1.position);
+                console.log('Mesh2 position:', this.mesh2.position);
+            }
+
+            generateSideGeometry() {
+                if (this.sideMesh) {
+                    this.scene.remove(this.mesh2);
+                }
+
+                // 创建侧面几何体
+                const sideGeometry = this.createSideGeometry();
+
+                if (sideGeometry) {
+                    const sideMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0x00cc00,
+                        side: THREE.DoubleSide
+                    });
+                    this.sideMesh = new THREE.Mesh(sideGeometry, sideMaterial);
+                    this.scene.add(this.sideMesh);
+                    
+                    console.log('Side mesh created and added to scene');
+                } else {
+                    console.error('Failed to create side geometry');
+                }
+            }
+
+            createSideGeometry() {
+                // 手动创建侧面几何体
+                const vertices = new Float32Array([
+                    // mesh1的四个顶点
+                    -1, 0, -1,    // 0
+                     1, 0, -1,    // 1
+                     1, 0,  1,    // 2
+                    -1, 0,  1,    // 3
+                    
+                    // mesh2的四个顶点
+                    -1, this.offset, -1,    // 4
+                     1, this.offset, -1,    // 5
+                     1, this.offset,  1,    // 6
+                    -1, this.offset,  1     // 7
+                ]);
+
+                const indices = [
+                    // 侧面1: 0-1-4, 1-5-4
+                    0, 1, 4, 1, 5, 4,
+                    // 侧面2: 1-2-5, 2-6-5
+                    1, 2, 5, 2, 6, 5,
+                    // 侧面3: 2-3-6, 3-7-6
+                    2, 3, 6, 3, 7, 6,
+                    // 侧面4: 3-0-7, 0-4-7
+                    3, 0, 7, 0, 4, 7
+                ];
+
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.setIndex(indices);
+                geometry.computeVertexNormals();
+
+                console.log('Created side geometry with vertices:', vertices);
+                console.log('Created side geometry with indices:', indices);
+
+                return geometry;
+            }
+
+            setupControls() {
+                const offsetSlider = document.getElementById('offsetSlider');
+                const offsetValue = document.getElementById('offsetValue');
+                const generateBtn = document.getElementById('generateBtn');
+                const debugBtn = document.getElementById('debugBtn');
+
+                offsetSlider.addEventListener('input', (e) => {
+                    this.offset = parseFloat(e.target.value);
+                    offsetValue.textContent = this.offset;
+                    this.createClonedMesh();
+                    this.generateSideGeometry();
+                });
+
+                generateBtn.addEventListener('click', () => {
+                    this.generateSideGeometry();
+                });
+
+                debugBtn.addEventListener('click', () => {
+                    console.log('=== 调试信息 ===');
+                    console.log('Mesh1:', this.mesh1);
+                    console.log('Mesh2:', this.mesh2);
+                    console.log('SideMesh:', this.sideMesh);
+                    console.log('Offset:', this.offset);
+                    
+                    if (this.sideMesh) {
+                        console.log('SideMesh geometry:', this.sideMesh.geometry);
+                        console.log('SideMesh visible:', this.sideMesh.visible);
+                    }
+                });
+
+                // 添加鼠标控制
+                let mouseX = 0, mouseY = 0;
+                let isMouseDown = false;
+
+                this.renderer.domElement.addEventListener('mousedown', (e) => {
+                    isMouseDown = true;
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                });
+
+                this.renderer.domElement.addEventListener('mouseup', () => {
+                    isMouseDown = false;
+                });
+
+                this.renderer.domElement.addEventListener('mousemove', (e) => {
+                    if (isMouseDown) {
+                        const deltaX = e.clientX - mouseX;
+                        const deltaY = e.clientY - mouseY;
+                        
+                        this.camera.position.x += deltaX * 0.01;
+                        this.camera.position.y -= deltaY * 0.01;
+                        this.camera.lookAt(0, 0, 0);
+                        
+                        mouseX = e.clientX;
+                        mouseY = e.clientY;
+                    }
+                });
+
+                // 添加滚轮缩放
+                this.renderer.domElement.addEventListener('wheel', (e) => {
+                    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+                    this.camera.position.multiplyScalar(scale);
+                });
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // 初始化应用
+        new SimpleMeshSideGenerator();
+    </script>
+</body>
+</html>
+

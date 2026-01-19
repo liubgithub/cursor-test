@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Lines with Distance-Based Transparency</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script>
+        // 初始化场景、相机和渲染器
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 设置相机位置
+        camera.position.z = 20;
+
+        // 创建一些随机线条
+        const lines = [];
+        const lineCount = 50;
+        
+        for (let i = 0; i < lineCount; i++) {
+            // 为每条线创建随机点
+            const points = [];
+            const segmentCount = 10;
+            
+            for (let j = 0; j < segmentCount; j++) {
+                points.push(new THREE.Vector3(
+                    (Math.random() - 0.5) * 30,
+                    (Math.random() - 0.5) * 30,
+                    (Math.random() - 0.5) * 30
+                ));
+            }
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            
+            // 创建自定义材质，使用onBeforeCompile修改着色器
+            const material = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 1.0
+            });
+            
+            // 修改着色器以实现基于距离的透明度
+            material.onBeforeCompile = (shader) => {
+                // 添加最大距离和最小距离作为uniform
+                shader.uniforms.maxDistance = { value: 100.0 };
+                shader.uniforms.minDistance = { value: 5.0 };
+                // 添加自定义相机位置uniform
+                shader.uniforms.cameraPosition = { value: camera.position };
+                
+                // 修改顶点着色器，传递世界坐标到片元着色器
+                shader.vertexShader = shader.vertexShader.replace(
+                    'void main() {',
+                    `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+                    `
+                );
+                
+                // 修改片元着色器，基于距离计算透明度
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    'void main() {',
+                    `
+                    uniform float maxDistance;
+                    uniform float minDistance;
+                    uniform vec3 customCameraPosition;
+                    varying vec3 vWorldPosition;
+                    void main() {
+                    `
+                );
+                
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <color_fragment>',
+                    `
+                    #include <color_fragment>
+                    
+                    // 计算片元到相机的距离，使用自定义相机位置
+                    float distance = length(vWorldPosition - cameraPosition);
+                    
+                    // 计算基于距离的透明度
+                    // 距离越远，透明度越高（alpha越低）
+                    float alpha = 1.0 - clamp((distance - minDistance) / (maxDistance - minDistance), 0.0, 1.0);
+                    
+                    // 应用透明度
+                    diffuseColor.a *= alpha;
+                    `
+                );
+                
+                material.userData.shader = shader;
+            };
+            
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+            lines.push(line);
+        }
+        
+        // 添加简单的轨道控制
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        
+        document.addEventListener('mousedown', (e) => {
+            isDragging = true;
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+                
+                // 旋转场景
+                scene.rotation.y += deltaMove.x * 0.01;
+                scene.rotation.x += deltaMove.y * 0.01;
+            }
+            
+            previousMousePosition = {
+                x: e.clientX,
+                y: e.clientY
+            };
+        });
+        
+        // 添加缩放控制
+        document.addEventListener('wheel', (e) => {
+            camera.position.z += e.deltaY * 0.01;
+            // 限制缩放范围
+            camera.position.z = Math.max(5, Math.min(100, camera.position.z));
+            camera.updateProjectionMatrix();
+        });
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 更新所有线条材质中的相机位置
+            lines.forEach(line => {
+                if (line.material.userData.shader) {
+                    const shader = line.material.userData.shader;
+                    // 使用自定义的相机位置uniform
+                    if (shader.uniforms.cameraPosition) {
+                        shader.uniforms.cameraPosition.value.copy(camera.position);
+                    }
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        // 处理窗口大小变化
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        animate();
+    </script>
+</body>
+</html>

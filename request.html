@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+</body>
+<script>
+   async function run() {
+        const myHeaders = new Headers()
+        myHeaders.append('Content-Type', 'application/x-www-form-urlencoded');
+
+        const params = new URLSearchParams();
+        params.append('client_id', 'test');
+        params.append('client_secret', '123456');
+        params.append('grant_type', 'password');
+        params.append('username', 'liub');
+        params.append('password', 'liu08010');
+        const tokenResult = await fetch('https://www.hyznb.cn/ogeapi/api/oauth/token', {
+            method: 'POST',
+            headers: myHeaders,
+            body: params.toString()
+        }).then((response) => response.json()).then((res) => {
+            return res;
+        });
+        const ogeToken = tokenResult.data.token;
+        const newHeaders = new Headers()
+        newHeaders.append('Content-Type', 'application/json');
+        newHeaders.append('Authorization', `Bearer ${ogeToken}`);
+        const processResult = await fetch('https://www.hyznb.cn/ogeapi/api/computation-api/process', {
+            method: 'POST',
+            headers: newHeaders,
+            //body: JSON.stringify({"name":"Coverage.contourByGDAL","args":{"input":{"type":"Coverage","pretreatment":true,"preParams":{"bbox":[114.62812647500778,30.73270689933767,114.65536129006887,30.748857740610802]},"value":["Personal:MyData:myData/bee3a810-04f5-4564-8cc5-0dc1104f9eef/whu水体提取.tif"]},"interval":"30.0","ignoreNodata":"false","extra":"","create3D":"false","nodata":"0","offset":0,"band":1,"fieldName":"ELEV","options":"","output":"Coverage.contourByGDAL1757329883684"},"dockerImageSource":"DOCKER_HUB","metaInfo":"{\"dataNodes\":{\"input\":[{\"assetUuid\":\"bee3a810-04f5-4564-8cc5-0dc1104f9eef\",\"label\":\"whu水体提取tif\",\"value\":\"Personal:MyData:myData/bee3a810-04f5-4564-8cc5-0dc1104f9eef/whu水体提取.tif\",\"keyType\":\"grid\"}]},\"formJson\":{\"input\":[\"Personal:MyData:myData/bee3a810-04f5-4564-8cc5-0dc1104f9eef/whu水体提取.tif\"],\"interval\":\"30.0\",\"ignoreNodata\":\"false\",\"extra\":\"\",\"create3D\":\"false\",\"nodata\":\"0\",\"offset\":0,\"band\":1,\"fieldName\":\"ELEV\",\"options\":\"\",\"output\":\"Coverage.contourByGDAL1757329883684\"},\"boxAll\":{\"input\":[[114.62812647500778,30.73270689933767],[114.62812647500778,30.748857740610802],[114.65536129006887,30.748857740610802],[114.65536129006887,30.73270689933767],[114.62812647500778,30.73270689933767]]},\"formName\":\"DEM分析 / 等高线\",\"options\":[{\"assetUuid\":\"bee3a810-04f5-4564-8cc5-0dc1104f9eef\",\"label\":\"whu水体提取tif\",\"value\":\"Personal:MyData:myData/bee3a810-04f5-4564-8cc5-0dc1104f9eef/whu水体提取.tif\",\"keyType\":\"grid\"}]}"})
+            body: JSON.stringify({
+              "name": "Coverage.slope",
+              "args": {
+                  "coverage": {
+                      "type": "Coverage",
+                      "pretreatment": false,
+                      "preParams": {},
+                      "value": [
+                          "Platform:Coverage:s038w072:ALOS_PALSAR_DEM12.5"
+                      ]
+                  },
+                  "radius": 1,
+                  "Z_factor": "1.0",
+                  "output": "Coverage.slope1761828088495"
+              }
+          })
+        }).then((response) => response.json()).then((res) => {
+            return res;
+        });
+        const processId = processResult.data.processId;
+        let finished = false;
+        const interval = setInterval(async () => {
+            if (finished) {
+                clearInterval(interval);
+                return;
+            }
+            const pid = 'd310638a-a466-41d7-abd8-3fc8d6b39fc7_Coverage.slope_1761829036239_7106';
+            const tk = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjE3MjIsInVzZXJfbmFtZSI6ImxpdWIiLCJzY29wZSI6WyJ3ZWIiXSwiZXhwIjoxNzYxOTI0MzE1LCJ1dWlkIjoiZDMxMDYzOGEtYTQ2Ni00MWQ3LWFiZDgtM2ZjOGQ2YjM5ZmM3IiwiYXV0aG9yaXRpZXMiOlsiMiJdLCJqdGkiOiJ1SUJ0ZTZ0UEJEX1NVTzZXVGxiS0Y5SFFsRlkiLCJjbGllbnRfaWQiOiJ0ZXN0IiwidXNlcm5hbWUiOiJsaXViIn0.d9_G_gBZZIjqTiXSRwKrs0DhgafOfZr832u2ferfe5E'
+            const result = await fetch(`https://www.hyznb.cn/ogeapi/api/computation-api/process/${pid}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': tk
+                }
+            }).then((response) => response.json()).then((res) => {
+                return res;
+            });
+            if (result.data ) {
+                console.log(result.data);
+            }
+        }, 3 * 1000);
+   }
+   run();
+  //  https://openge.org.cn/api/model/geoImage/get_image
+</script>
+</html>

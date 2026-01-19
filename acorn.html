@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+        
+        /* 弹框样式 */
+        #chartModal {
+            display: none;
+            position: fixed;
+            top: 30%;
+            left: 30%;
+            width: 40%;
+            height: 40%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            cursor: move;
+        }
+        
+        #chartModal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            cursor: move;
+        }
+        
+        #chartModal h2 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+            flex: 1;
+            text-align: center;
+        }
+        
+        #closeBtn {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: #f44336;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 30px;
+            text-align: center;
+            padding: 0;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+        
+        #closeBtn:hover {
+            background: #da190b;
+        }
+        
+        #chartContainer {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="http://8.130.186.39:5173/#/home/map" frameborder="0"></iframe>
+    
+    <!-- 弹框 -->
+    <div id="chartModal">
+        <div class="modal-header">
+            <h2>计算结果展示</h2>
+            <button id="closeBtn" title="关闭">×</button>
+        </div>
+        <div id="chartContainer"></div>
+    </div>
+    
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    
+    <script>
+        // 加载数据并初始化图表
+        async function initChart() {
+            try {
+                // 加载数据
+                const response = await fetch('./data/mydata.json');
+                const data = await response.json();
+                
+                // 提取区组和产量数据
+                const categories = data.map(item => item.区组);
+                const values = data.map(item => item['红星实测产量(kg/亩）']);
+                
+                // 初始化 ECharts 实例
+                const chartDom = document.getElementById('chartContainer');
+                const myChart = echarts.init(chartDom);
+                
+                // 配置选项
+                const option = {
+                    title: {
+                        text: '玉米产量预测统计表',
+                        left: 'center',
+                        top: 10,
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function(params) {
+                            const param = params[0];
+                            return param.name + '<br/>' + 
+                                   param.seriesName + ': ' + param.value + ' kg/亩';
+                        }
+                    },
+                    grid: {
+                        left: '10%',
+                        right: '10%',
+                        bottom: '15%',
+                        top: '15%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: categories,
+                        axisLabel: {
+                            rotate: 45,
+                            interval: 0,
+                            fontSize: 10
+                        },
+                        name: '区组',
+                        nameLocation: 'middle',
+                        nameGap: 30
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '红星实测产量(kg/亩)',
+                        nameLocation: 'middle',
+                        nameGap: 50
+                    },
+                    series: [{
+                        name: '红星实测产量',
+                        type: 'bar',
+                        data: values,
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#4dd4a8' },
+                                { offset: 0.5, color: '#18ae80' },
+                                { offset: 1, color: '#18ae80' }
+                            ])
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#18ae80' },
+                                    { offset: 0.7, color: '#18ae80' },
+                                    { offset: 1, color: '#0f8a65' }
+                                ])
+                            }
+                        }
+                    }]
+                };
+                
+                // 设置配置项并渲染图表
+                myChart.setOption(option);
+                
+                // 响应式调整
+                window.addEventListener('resize', function() {
+                    myChart.resize();
+                });
+                
+            } catch (error) {
+                console.error('加载数据或初始化图表失败:', error);
+                alert('加载数据失败，请检查 data/mydata.json 文件');
+            }
+        }
+        
+        // 拖拽功能
+        function initDrag() {
+            const modal = document.getElementById('chartModal');
+            const header = modal.querySelector('.modal-header');
+            let isDragging = false;
+            let startX;
+            let startY;
+            let initialLeft;
+            let initialTop;
+            
+            // 鼠标按下事件
+            header.addEventListener('mousedown', function(e) {
+                if (e.target.id === 'closeBtn') {
+                    return; // 如果点击的是关闭按钮，不触发拖拽
+                }
+                
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                // 获取当前弹框的位置
+                const rect = modal.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                
+                // 改变鼠标样式
+                document.body.style.cursor = 'move';
+                e.preventDefault();
+            });
+            
+            // 鼠标移动事件
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                
+                e.preventDefault();
+                
+                // 计算移动距离
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                // 计算新位置
+                let newLeft = initialLeft + deltaX;
+                let newTop = initialTop + deltaY;
+                
+                // 限制在视口内
+                const maxLeft = window.innerWidth - modal.offsetWidth;
+                const maxTop = window.innerHeight - modal.offsetHeight;
+                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                newTop = Math.max(0, Math.min(newTop, maxTop));
+                
+                // 更新位置
+                modal.style.left = newLeft + 'px';
+                modal.style.top = newTop + 'px';
+            });
+            
+            // 鼠标释放事件
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    document.body.style.cursor = '';
+                }
+            });
+        }
+        
+        // 关闭按钮功能
+        function initCloseButton() {
+            const closeBtn = document.getElementById('closeBtn');
+            const modal = document.getElementById('chartModal');
+            
+            closeBtn.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            initDrag();
+            initCloseButton();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音转文字</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            width: 80%;
+            min-height: 150px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: pre-wrap; /* Preserve line breaks */
+            word-wrap: break-word; /* Break long words */
+        }
+    </style>
+</head>
+<body>
+    <h1>语音转文字</h1>
+
+    <div id="controls">
+        <button id="startButton">开始录音</button>
+    </div>
+
+    <div id="result">
+        <p>点击“开始录音”按钮并说话...</p>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const resultDiv = document.getElementById('result');
+
+        // Check for browser compatibility
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            resultDiv.innerHTML = '<p>抱歉，您的浏览器不支持 Web Speech API。</p>';
+            startButton.disabled = true;
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false; // Set to true for continuous recognition
+            recognition.interimResults = true; // Set to true to get interim results
+            recognition.lang = 'zh-CN'; // Set language (e.g., 'en-US', 'zh-CN')
+
+            let isRecording = false;
+            let finalTranscript = '';
+
+            recognition.onstart = () => {
+                isRecording = true;
+                startButton.textContent = '停止录音';
+                startButton.style.backgroundColor = '#dc3545'; // Red color for stop
+                resultDiv.innerHTML = '<p>正在聆听...</p>';
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                // Display interim and final results
+                resultDiv.innerHTML = '<p>' + finalTranscript + '</p>' + '<p style="color:#888;">' + interimTranscript + '</p>';
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event);
+                resultDiv.innerHTML = '<p>发生错误: ' + event.error + '</p>';
+                isRecording = false;
+                startButton.textContent = '开始录音';
+                startButton.style.backgroundColor = '#007bff'; // Blue color for start
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                startButton.textContent = '开始录音';
+                startButton.style.backgroundColor = '#007bff'; // Blue color for start
+                if (finalTranscript === '') {
+                     resultDiv.innerHTML = '<p>没有检测到语音。</p>';
+                } else {
+                     // Display only the final transcript after recording stops
+                     resultDiv.innerHTML = '<p>' + finalTranscript + '</p>';
+                }
+                finalTranscript = ''; // Reset for next recording
+            };
+
+            startButton.addEventListener('click', () => {
+                if (isRecording) {
+                    recognition.stop();
+                } else {
+                    finalTranscript = ''; // Clear previous results
+                    recognition.start();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

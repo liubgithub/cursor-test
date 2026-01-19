@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .tree {
+            list-style: none;
+            padding: 0;
+        }
+        .tree-item {
+            margin: 5px 0;
+        }
+        .tree-parent {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .tree-children {
+            list-style: none;
+            padding-left: 20px;
+            margin: 0;
+        }
+        .tree-child {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .checkbox {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Tree Control</h2>
+    <ul id="tree-container" class="tree"></ul>
+
+    <script>
+        const tree = [
+            {
+                name: '工业园',
+                children: ['保安镇金塘工业园','陈贵镇纺织服装产业新区','陈贵镇马鞍山产业园','临空经济区·还地桥金桥工业园','金山店镇新型环保材料产业园','灵成工业园','金湖街道非金属新型材料产业园','黄石大冶湖高新技术产业园','其他']
+            },
+            {
+                name: '产业园',
+                children: [ "低碳采冶和绿色建材","生命健康","高端装备制造","光电子信息","新能源与智能网联汽车","未来产业"]
+            }   
+        ];
+
+        function createTreeControl(data, container) {
+            data.forEach((item, index) => {
+                // 创建父节点
+                const parentLi = document.createElement('li');
+                parentLi.className = 'tree-item';
+                
+                const parentDiv = document.createElement('div');
+                parentDiv.className = 'tree-parent';
+                
+                const parentCheckbox = document.createElement('input');
+                parentCheckbox.type = 'checkbox';
+                parentCheckbox.className = 'checkbox';
+                parentCheckbox.id = `parent-${index}`;
+                parentCheckbox.checked = true;
+                
+                const parentLabel = document.createElement('label');
+                parentLabel.htmlFor = `parent-${index}`;
+                parentLabel.textContent = item.name;
+                
+                parentDiv.appendChild(parentCheckbox);
+                parentDiv.appendChild(parentLabel);
+                parentLi.appendChild(parentDiv);
+                
+                // 创建子节点容器
+                const childrenUl = document.createElement('ul');
+                childrenUl.className = 'tree-children';
+                childrenUl.id = `children-${index}`;
+                
+                // 创建子节点
+                item.children.forEach((child, childIndex) => {
+                    const childLi = document.createElement('li');
+                    childLi.className = 'tree-child';
+                    
+                    const childCheckbox = document.createElement('input');
+                    childCheckbox.type = 'checkbox';
+                    childCheckbox.className = 'checkbox';
+                    childCheckbox.id = `child-${index}-${childIndex}`;
+                    childCheckbox.checked = true;
+                    
+                    const childLabel = document.createElement('label');
+                    childLabel.htmlFor = `child-${index}-${childIndex}`;
+                    childLabel.textContent = child;
+                    
+                    childLi.appendChild(childCheckbox);
+                    childLi.appendChild(childLabel);
+                    childrenUl.appendChild(childLi);
+                    
+                    // 子节点复选框事件
+                    childCheckbox.addEventListener('change', function() {
+                        updateParentCheckbox(index);
+                    });
+                });
+                
+                parentLi.appendChild(childrenUl);
+                container.appendChild(parentLi);
+                
+                // 父节点复选框事件
+                parentCheckbox.addEventListener('change', function() {
+                    const children = childrenUl.querySelectorAll('.tree-child input[type="checkbox"]');
+                    children.forEach(child => {
+                        child.checked = this.checked;
+                    });
+                });
+            });
+        }
+        
+        // 更新父节点复选框状态
+        function updateParentCheckbox(parentIndex) {
+            const parentCheckbox = document.getElementById(`parent-${parentIndex}`);
+            const children = document.querySelectorAll(`#children-${parentIndex} input[type="checkbox"]`);
+            const checkedChildren = document.querySelectorAll(`#children-${parentIndex} input[type="checkbox"]:checked`);
+            
+            if (checkedChildren.length === 0) {
+                parentCheckbox.checked = false;
+                parentCheckbox.indeterminate = false;
+            } else if (checkedChildren.length === children.length) {
+                parentCheckbox.checked = true;
+                parentCheckbox.indeterminate = false;
+            } else {
+                parentCheckbox.checked = false;
+                parentCheckbox.indeterminate = true;
+            }
+        }
+        
+        // 初始化树控件
+        const container = document.getElementById('tree-container');
+        createTreeControl(tree, container);
+    </script>
+</body>
+</html>

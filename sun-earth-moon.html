@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+	<title>三体关系演示 - 太阳 地球 月球</title>
+	<link rel="preload" href="lib/three.module.js" as="script" />
+	<link rel="preload" href="lib/OrbitControls.js" as="script" />
+	<style>
+		html, body {
+			margin: 0;
+			height: 100%;
+			background: #0b1020;
+			color: #e6eefc;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+		}
+		#app { position: fixed; inset: 0; }
+		#ui {
+			position: fixed;
+			top: 12px; left: 12px; right: 12px;
+			display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+			background: rgba(10, 14, 30, 0.5);
+			backdrop-filter: blur(4px);
+			border: 1px solid rgba(255,255,255,0.1);
+			border-radius: 10px;
+			padding: 10px 12px;
+			user-select: none;
+		}
+		#ui .row { display: flex; gap: 10px; align-items: center; }
+		button, input[type="range"], label { font-size: 14px; }
+		button {
+			padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+			background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+			color: inherit; cursor: pointer;
+		}
+		button:hover { border-color: rgba(255,255,255,0.35); }
+		label { opacity: 0.9; }
+		.value { width: 44px; text-align: right; opacity: 0.8; }
+		.legend { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+		.badge { display: inline-flex; align-items: center; gap: 6px; opacity: 0.9; }
+		.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+		.sun { background: #ffcc33; box-shadow: 0 0 8px #ffcc33; }
+		.earth { background: #6bc1ff; box-shadow: 0 0 8px #6bc1ff; }
+		.moon { background: #cfd8e3; box-shadow: 0 0 8px #cfd8e3; }
+		.note { width: 100%; font-size: 12px; opacity: 0.8; }
+		.canvas-wrap { position: absolute; inset: 0; }
+	</style>
+</head>
+<body>
+	<div id="app">
+		<div id="ui">
+			<div class="row">
+				<button id="playPause">暂停</button>
+				<label>速度 <input id="speed" type="range" min="0" max="4" step="0.01" value="1" /></label>
+				<span id="speedVal" class="value">1.00×</span>
+				<label><input id="showOrbits" type="checkbox" checked /> 显示轨道</label>
+				<label><input id="lockCamera" type="checkbox" /> 跟随地球</label>
+			</div>
+			<div class="legend">
+				<span class="badge"><span class="dot sun"></span> 太阳</span>
+				<span class="badge"><span class="dot earth"></span> 地球</span>
+				<span class="badge"><span class="dot moon"></span> 月球</span>
+			</div>
+			<div class="note">此演示非真实比例，仅体现空间运动关系：自转、围绕公转、月球绕地公转与轨道倾角、地轴倾角等。</div>
+		</div>
+		<div class="canvas-wrap"><canvas id="c"></canvas></div>
+	</div>
+
+	<script type="module">
+		import * as THREE from './lib/three.module.js';
+		import { OrbitControls } from './lib/OrbitControls.js';
+
+		const canvas = document.getElementById('c');
+		const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		renderer.outputColorSpace = THREE.SRGBColorSpace;
+		renderer.shadowMap.enabled = true;
+
+		const scene = new THREE.Scene();
+		scene.background = new THREE.Color(0x0b1020);
+
+		const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 5000);
+		camera.position.set(120, 80, 140);
+
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.08;
+		controls.maxDistance = 800;
+		controls.minDistance = 20;
+
+		// 灯光（太阳当作发光体）
+		const ambient = new THREE.AmbientLight(0x223344, 0.5);
+		scene.add(ambient);
+		const sunLight = new THREE.PointLight(0xffdd99, 2.2, 0, 2);
+		sunLight.castShadow = true;
+		scene.add(sunLight);
+
+		// 创建星空背景纹理
+		function createStarfieldTexture() {
+			const canvas = document.createElement('canvas');
+			canvas.width = 2048;
+			canvas.height = 1024;
+			const ctx = canvas.getContext('2d');
+			
+			// 深空背景
+			ctx.fillStyle = '#0a0a0a';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			
+			// 添加星星
+			ctx.fillStyle = '#ffffff';
+			for (let i = 0; i < 3000; i++) {
+				const x = Math.random() * canvas.width;
+				const y = Math.random() * canvas.height;
+				const size = Math.random() * 2 + 0.5;
+				const opacity = Math.random() * 0.8 + 0.2;
+				
+				ctx.globalAlpha = opacity;
+				ctx.beginPath();
+				ctx.arc(x, y, size, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			
+			// 添加一些亮星
+			ctx.globalAlpha = 1;
+			ctx.fillStyle = '#ffffcc';
+			for (let i = 0; i < 50; i++) {
+				const x = Math.random() * canvas.width;
+				const y = Math.random() * canvas.height;
+				const size = Math.random() * 3 + 1;
+				
+				ctx.beginPath();
+				ctx.arc(x, y, size, 0, Math.PI * 2);
+				ctx.fill();
+				
+				// 添加光晕
+				ctx.shadowBlur = 10;
+				ctx.shadowColor = '#ffffcc';
+				ctx.beginPath();
+				ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.shadowBlur = 0;
+			}
+			
+			const texture = new THREE.CanvasTexture(canvas);
+			texture.colorSpace = THREE.SRGBColorSpace;
+			texture.needsUpdate = true;
+			return texture;
+		}
+
+		// 星点背景
+		const starGeo = new THREE.SphereGeometry(2000, 32, 16);
+		const starMat = new THREE.MeshBasicMaterial({ 
+			map: createStarfieldTexture(), 
+			side: THREE.BackSide 
+		});
+		scene.add(new THREE.Mesh(starGeo, starMat));
+
+		// 创建地球纹理
+		function createEarthTexture() {
+			const canvas = document.createElement('canvas');
+			canvas.width = 1024;
+			canvas.height = 512;
+			const ctx = canvas.getContext('2d');
+			
+			// 海洋背景
+			ctx.fillStyle = '#1e3a8a';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			
+			// 添加大陆轮廓（简化版）
+			ctx.fillStyle = '#22c55e';
+			
+			// 非洲
+			ctx.beginPath();
+			ctx.ellipse(500, 300, 80, 200, 0, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 欧洲
+			ctx.beginPath();
+			ctx.ellipse(480, 150, 60, 40, 0, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 亚洲
+			ctx.beginPath();
+			ctx.ellipse(700, 200, 120, 100, 0, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 美洲
+			ctx.beginPath();
+			ctx.ellipse(200, 250, 60, 180, 0, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 澳洲
+			ctx.beginPath();
+			ctx.ellipse(750, 400, 50, 30, 0, 0, Math.PI * 2);
+			ctx.fill();
+			
+			// 添加一些细节
+			ctx.fillStyle = '#16a34a';
+			for (let i = 0; i < 100; i++) {
+				const x = Math.random() * canvas.width;
+				const y = Math.random() * canvas.height;
+				const size = Math.random() * 3 + 1;
+				ctx.beginPath();
+				ctx.arc(x, y, size, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			
+			const texture = new THREE.CanvasTexture(canvas);
+			texture.colorSpace = THREE.SRGBColorSpace;
+			texture.needsUpdate = true;
+			return texture;
+		}
+
+		// 创建月球纹理
+		function createMoonTexture() {
+			const canvas = document.createElement('canvas');
+			canvas.width = 512;
+			canvas.height = 256;
+			const ctx = canvas.getContext('2d');
+			
+			// 月球表面基础色
+			ctx.fillStyle = '#8b8b8b';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			
+			// 添加陨石坑
+			ctx.fillStyle = '#6b6b6b';
+			for (let i = 0; i < 200; i++) {
+				const x = Math.random() * canvas.width;
+				const y = Math.random() * canvas.height;
+				const size = Math.random() * 15 + 5;
+				
+				ctx.beginPath();
+				ctx.arc(x, y, size, 0, Math.PI * 2);
+				ctx.fill();
+				
+				// 陨石坑边缘高光
+				ctx.fillStyle = '#a0a0a0';
+				ctx.beginPath();
+				ctx.arc(x - size * 0.3, y - size * 0.3, size * 0.3, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.fillStyle = '#6b6b6b';
+			}
+			
+			// 添加一些亮区（月海）
+			ctx.fillStyle = '#5a5a5a';
+			for (let i = 0; i < 20; i++) {
+				const x = Math.random() * canvas.width;
+				const y = Math.random() * canvas.height;
+				const size = Math.random() * 30 + 20;
+				
+				ctx.beginPath();
+				ctx.ellipse(x, y, size, size * 0.8, Math.random() * Math.PI, 0, Math.PI * 2);
+				ctx.fill();
+			}
+			
+			const texture = new THREE.CanvasTexture(canvas);
+			texture.colorSpace = THREE.SRGBColorSpace;
+			texture.needsUpdate = true;
+			return texture;
+		}
+
+		// 比例（演示尺度）
+		const SCALE = {
+			sunRadius: 20,
+			earthRadius: 6,
+			moonRadius: 1.6,
+			earthOrbit: 80,
+			moonOrbit: 14
+		};
+
+		// 太阳
+		const sunMat = new THREE.MeshBasicMaterial({ color: 0xffcc33 });
+		const sun = new THREE.Mesh(new THREE.SphereGeometry(SCALE.sunRadius, 48, 32), sunMat);
+		sun.name = 'Sun';
+		scene.add(sun);
+		sunLight.position.copy(sun.position);
+
+		// 地球系统节点（便于整体绕太阳公转）
+		const earthSystem = new THREE.Object3D();
+		scene.add(earthSystem);
+
+		// 地球轨道（圆环）
+		const earthOrbit = new THREE.LineLoop(
+			new THREE.BufferGeometry().setFromPoints(Array.from({ length: 256 }, (_, i) => {
+				const t = (i / 256) * Math.PI * 2;
+				return new THREE.Vector3(Math.cos(t) * SCALE.earthOrbit, 0, Math.sin(t) * SCALE.earthOrbit);
+			})),
+			new THREE.LineDashedMaterial({ color: 0x3a6bff, dashSize: 3, gapSize: 2, transparent: true, opacity: 0.7 })
+		);
+		earthOrbit.computeLineDistances();
+		earthOrbit.visible = true;
+		scene.add(earthOrbit);
+
+		// 地轴倾角（约23.5°）
+		const EARTH_TILT = THREE.MathUtils.degToRad(23.5);
+
+		// 地球自转轴节点
+		const earthTiltNode = new THREE.Object3D();
+		earthTiltNode.rotation.z = EARTH_TILT;
+		earthSystem.add(earthTiltNode);
+
+		// 地球
+		const earthTexture = createEarthTexture();
+		earthTexture.colorSpace = THREE.SRGBColorSpace;
+		earthTexture.needsUpdate = true;
+		console.log('Earth texture created:', earthTexture);
+		
+		const earth = new THREE.Mesh(
+			new THREE.SphereGeometry(SCALE.earthRadius, 48, 32), 
+			new THREE.MeshPhongMaterial({ 
+				map: earthTexture,
+				color: 0x4fb6ff, // 备用颜色
+				shininess: 30,
+				specular: 0x222222,
+				side: THREE.FrontSide
+			})
+		);
+		earth.castShadow = true; earth.receiveShadow = true;
+		earth.position.set(SCALE.earthOrbit, 0, 0);
+		earth.name = 'Earth';
+		earthTiltNode.add(earth);
+
+		// 地球大气层光晕效果
+		const atmosphere = new THREE.Mesh(
+			new THREE.SphereGeometry(SCALE.earthRadius * 1.05, 32, 16),
+			new THREE.MeshBasicMaterial({
+				color: 0x87ceeb,
+				transparent: true,
+				opacity: 0.1,
+				side: THREE.BackSide
+			})
+		);
+		atmosphere.position.copy(earth.position);
+		earthTiltNode.add(atmosphere);
+
+		// 地球赤道圈辅助（显示自转方向）
+		const equator = new THREE.LineLoop(
+			new THREE.BufferGeometry().setFromPoints(Array.from({ length: 128 }, (_, i) => {
+				const t = (i / 128) * Math.PI * 2;
+				return new THREE.Vector3(Math.cos(t) * SCALE.earthRadius * 1.05, 0, Math.sin(t) * SCALE.earthRadius * 1.05);
+			})),
+			new THREE.LineBasicMaterial({ color: 0x7fd1ff, transparent: true, opacity: 0.9 })
+		);
+		equator.position.copy(earth.position);
+		earthTiltNode.add(equator);
+
+		// 月球系统：月球绕地球的轨道平面相对黄道面倾角约5.1°
+		const MOON_INCLINE = THREE.MathUtils.degToRad(5.1);
+		const moonSystem = new THREE.Object3D();
+		moonSystem.position.copy(earth.position);
+		moonSystem.rotation.z = MOON_INCLINE;
+		earthTiltNode.add(moonSystem);
+
+		// 月球轨道
+		const moonOrbit = new THREE.LineLoop(
+			new THREE.BufferGeometry().setFromPoints(Array.from({ length: 128 }, (_, i) => {
+				const t = (i / 128) * Math.PI * 2;
+				return new THREE.Vector3(Math.cos(t) * SCALE.moonOrbit, 0, Math.sin(t) * SCALE.moonOrbit);
+			})),
+			new THREE.LineDashedMaterial({ color: 0xcfd8e3, dashSize: 1.6, gapSize: 1.2, transparent: true, opacity: 0.9 })
+		);
+		moonOrbit.computeLineDistances();
+		moonOrbit.visible = true;
+		moonSystem.add(moonOrbit);
+
+		// 月球
+		const moonTexture = createMoonTexture();
+		moonTexture.colorSpace = THREE.SRGBColorSpace;
+		moonTexture.needsUpdate = true;
+		console.log('Moon texture created:', moonTexture);
+		
+		const moon = new THREE.Mesh(
+			new THREE.SphereGeometry(SCALE.moonRadius, 32, 16), 
+			new THREE.MeshPhongMaterial({ 
+				map: moonTexture,
+				color: 0xcfd8e3, // 备用颜色
+				shininess: 10,
+				specular: 0x111111,
+				side: THREE.FrontSide
+			})
+		);
+		moon.castShadow = true; moon.receiveShadow = true;
+		moon.position.set(SCALE.moonOrbit, 0, 0);
+		moon.name = 'Moon';
+		moonSystem.add(moon);
+
+		// 辅助坐标轴（小型，便于理解空间方向）
+		const axes = new THREE.AxesHelper(30);
+		axes.position.set(0, 0, 0);
+		axes.visible = false;
+		scene.add(axes);
+
+		// 简易标签（CanvasTexture 文字精灵）
+		function createLabelSprite(text, color = '#ffffff') {
+			const cvs = document.createElement('canvas');
+			const ctx = cvs.getContext('2d');
+			const fontSize = 42;
+			ctx.font = `${fontSize}px system-ui`;
+			const padding = 16;
+			const textWidth = Math.ceil(ctx.measureText(text).width);
+			cvs.width = textWidth + padding * 2;
+			cvs.height = fontSize + padding * 2;
+			ctx.font = `${fontSize}px system-ui`;
+			ctx.fillStyle = 'rgba(0,0,0,0.4)';
+			ctx.fillRect(0, 0, cvs.width, cvs.height);
+			ctx.fillStyle = color;
+			ctx.textBaseline = 'top';
+			ctx.fillText(text, padding, padding);
+			const tex = new THREE.CanvasTexture(cvs);
+			tex.colorSpace = THREE.SRGBColorSpace;
+			const mat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: false, transparent: true });
+			const sp = new THREE.Sprite(mat);
+			sp.scale.set(cvs.width / 6, cvs.height / 6, 1);
+			return sp;
+		}
+
+		const sunLabel = createLabelSprite('太阳', '#ffcc33');
+		sunLabel.position.set(0, SCALE.sunRadius + 8, 0);
+		sun.add(sunLabel);
+		const earthLabel = createLabelSprite('地球', '#7fd1ff');
+		earthLabel.position.set(0, SCALE.earthRadius + 4, 0);
+		earth.add(earthLabel);
+		const moonLabel = createLabelSprite('月球', '#e6eefc');
+		moonLabel.position.set(0, SCALE.moonRadius + 2, 0);
+		moon.add(moonLabel);
+
+		// UI 交互
+		const playPauseBtn = document.getElementById('playPause');
+		const speedRange = document.getElementById('speed');
+		const speedVal = document.getElementById('speedVal');
+		const showOrbitsChk = document.getElementById('showOrbits');
+		const lockCameraChk = document.getElementById('lockCamera');
+
+		let playing = true;
+		let timeScale = parseFloat(speedRange.value);
+		speedVal.textContent = `${timeScale.toFixed(2)}×`;
+
+		playPauseBtn.addEventListener('click', () => {
+			playing = !playing;
+			playPauseBtn.textContent = playing ? '暂停' : '播放';
+		});
+		speedRange.addEventListener('input', () => {
+			timeScale = parseFloat(speedRange.value);
+			speedVal.textContent = `${timeScale.toFixed(2)}×`;
+		});
+		showOrbitsChk.addEventListener('change', () => {
+			earthOrbit.visible = showOrbitsChk.checked;
+			moonOrbit.visible = showOrbitsChk.checked;
+		});
+
+		// 运动参数（简化比例）
+		// 1 地球自转：1 天；地球公转：365 天；月球公转：27.3 天（近似）
+		const DAY = 1;
+		const EARTH_ROTATION_PER_DAY = (Math.PI * 2) / DAY;
+		const EARTH_REVOLUTION_PER_DAY = (Math.PI * 2) / 365;
+		const MOON_REVOLUTION_PER_DAY = (Math.PI * 2) / 27.3;
+		const MOON_ROTATION_PER_DAY = MOON_REVOLUTION_PER_DAY; // 同步自转（近似）
+
+		// 动画循环
+		const clock = new THREE.Clock();
+		let elapsedDays = 0;
+		function animate() {
+			requestAnimationFrame(animate);
+			const dt = clock.getDelta();
+			if (playing) {
+				const days = dt * 20 * timeScale; // 速度基准：每秒约 20 天，可调节
+				elapsedDays += days;
+
+				// 地球绕太阳公转：通过 earthSystem 的旋转来实现
+				earthSystem.rotation.y += EARTH_REVOLUTION_PER_DAY * days;
+
+				// 地球自转（绕自身倾斜轴）
+				earth.rotation.y += EARTH_ROTATION_PER_DAY * days;
+
+				// 月球绕地公转
+				moonSystem.rotation.y += MOON_REVOLUTION_PER_DAY * days;
+				// 月球自转（近似同步）
+				moon.rotation.y += MOON_ROTATION_PER_DAY * days;
+			}
+
+			// 摄像机可选择跟随地球
+			if (lockCameraChk.checked) {
+				const target = earth.getWorldPosition(new THREE.Vector3());
+				const offset = new THREE.Vector3(24, 14, 24);
+				camera.position.copy(target).add(offset);
+				controls.target.copy(target);
+			}
+
+			controls.update();
+			renderer.render(scene, camera);
+		}
+		animate();
+
+		// 自适应
+		window.addEventListener('resize', () => {
+			const w = window.innerWidth;
+			const h = window.innerHeight;
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+			renderer.setSize(w, h, false);
+			camera.aspect = w / h;
+			camera.updateProjectionMatrix();
+		});
+	</script>
+</body>
+</html>
+
+

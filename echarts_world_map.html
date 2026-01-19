@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECharts 世界地图 - 国家切换</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .current-map {
+            font-size: 16px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .current-map span {
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #map-container {
+            width: 100%;
+            height: 600px;
+            padding: 20px;
+        }
+        
+        .info-panel {
+            padding: 20px 30px;
+            background: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .info-panel strong {
+            color: #333;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .btn-group {
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+            
+            #map-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 ECharts 世界地图</h1>
+            <p>点击地图上的国家，即可切换到该国家的详细地图</p>
+        </div>
+        
+        <div class="controls">
+            <div class="current-map">
+                当前地图: <span id="current-map-name">世界地图</span>
+            </div>
+            <div class="btn-group">
+                <button onclick="resetToWorld()">返回世界地图</button>
+                <button onclick="toggleMapType()">切换地图类型</button>
+            </div>
+        </div>
+        
+        <div id="map-container"></div>
+        
+        <div class="info-panel">
+            <strong>使用说明：</strong>
+            <ul style="margin-top: 10px; padding-left: 20px;">
+                <li>点击地图上的任意国家，将自动切换到该国家的详细地图</li>
+                <li>点击"返回世界地图"按钮可以回到世界地图视图</li>
+                <li>点击"切换地图类型"可以在普通地图和卫星图之间切换</li>
+                <li>支持的国家包括：中国、美国、日本、英国、法国、德国、俄罗斯、印度、巴西、澳大利亚等</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json"></script>
+    <script>
+        // 初始化 ECharts 实例
+        const chartDom = document.getElementById('map-container');
+        const myChart = echarts.init(chartDom);
+        
+        let currentMapName = 'world';
+        let currentMapType = 'map'; // 'map' 或 'scatter'
+        let mapData = {};
+        
+        // 国家名称映射（用于显示和切换）
+        const countryMap = {
+            'China': 'china',
+            'United States of America': 'usa',
+            'United States': 'usa',
+            'Japan': 'japan',
+            'United Kingdom': 'uk',
+            'France': 'france',
+            'Germany': 'germany',
+            'Russia': 'russia',
+            'India': 'india',
+            'Brazil': 'brazil',
+            'Australia': 'australia',
+            'Canada': 'canada',
+            'Italy': 'italy',
+            'Spain': 'spain',
+            'South Korea': 'south-korea',
+            'Mexico': 'mexico',
+            'Argentina': 'argentina',
+            'South Africa': 'south-africa',
+            'Egypt': 'egypt',
+            'Thailand': 'thailand',
+            'Indonesia': 'indonesia',
+            'Vietnam': 'vietnam',
+            'Philippines': 'philippines',
+            'Malaysia': 'malaysia',
+            'Singapore': 'singapore',
+            'New Zealand': 'new-zealand',
+            'Turkey': 'turkey',
+            'Saudi Arabia': 'saudi-arabia',
+            'Iran': 'iran',
+            'Iraq': 'iraq',
+            'Pakistan': 'pakistan',
+            'Bangladesh': 'bangladesh',
+            'Myanmar': 'myanmar',
+            'Poland': 'poland',
+            'Netherlands': 'netherlands',
+            'Belgium': 'belgium',
+            'Sweden': 'sweden',
+            'Norway': 'norway',
+            'Finland': 'finland',
+            'Denmark': 'denmark',
+            'Switzerland': 'switzerland',
+            'Austria': 'austria',
+            'Greece': 'greece',
+            'Portugal': 'portugal',
+            'Chile': 'chile',
+            'Peru': 'peru',
+            'Colombia': 'colombia',
+            'Venezuela': 'venezuela',
+            'Ukraine': 'ukraine',
+            'Kazakhstan': 'kazakhstan',
+            'Uzbekistan': 'uzbekistan',
+            'Afghanistan': 'afghanistan',
+            'Nepal': 'nepal',
+            'Sri Lanka': 'sri-lanka',
+            'Cambodia': 'cambodia',
+            'Laos': 'laos',
+            'Mongolia': 'mongolia',
+            'North Korea': 'north-korea',
+            'Taiwan': 'taiwan'
+        };
+        
+        // 加载世界地图
+        function loadWorldMap() {
+            // 使用 ECharts 内置的世界地图
+            const option = {
+                title: {
+                    text: '世界地图',
+                    left: 'center',
+                    textStyle: {
+                        color: '#333',
+                        fontSize: 20
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        if (params.data) {
+                            return params.name + '<br/>点击查看详情';
+                        }
+                        return params.name;
+                    }
+                },
+                visualMap: {
+                    min: 0,
+                    max: 100,
+                    left: 'left',
+                    top: 'bottom',
+                    text: ['高', '低'],
+                    calculable: true,
+                    inRange: {
+                        color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
+                    }
+                },
+                series: [{
+                    name: '世界地图',
+                    type: 'map',
+                    map: 'world',
+                    roam: true,
+                    emphasis: {
+                        label: {
+                            show: true
+                        },
+                        itemStyle: {
+                            areaColor: '#ff6b6b'
+                        }
+                    },
+                    data: []
+                }]
+            };
+            
+            // 注册世界地图
+            echarts.registerMap('world', null);
+            
+            // 使用在线地图数据
+            fetch('https://geo.datav.aliyun.com/areas_v3/bound/world.json')
+                .then(response => response.json())
+                .then(worldJson => {
+                    echarts.registerMap('world', worldJson);
+                    myChart.setOption(option);
+                })
+                .catch(error => {
+                    console.error('加载世界地图失败:', error);
+                    // 如果加载失败，使用简化的配置
+                    myChart.setOption(option);
+                });
+        }
+        
+        // 加载国家地图
+        function loadCountryMap(countryName, countryCode) {
+            const countryNameDisplay = countryName;
+            
+            // 尝试加载国家地图数据
+            const mapUrl = `https://geo.datav.aliyun.com/areas_v3/bound/${countryCode}.json`;
+            
+            fetch(mapUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('地图数据不存在');
+                    }
+                    return response.json();
+                })
+                .then(countryJson => {
+                    echarts.registerMap(countryCode, countryJson);
+                    
+                    const option = {
+                        title: {
+                            text: countryNameDisplay + '地图',
+                            left: 'center',
+                            textStyle: {
+                                color: '#333',
+                                fontSize: 20
+                            }
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: '{b}'
+                        },
+                        visualMap: {
+                            min: 0,
+                            max: 100,
+                            left: 'left',
+                            top: 'bottom',
+                            text: ['高', '低'],
+                            calculable: true,
+                            inRange: {
+                                color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
+                            }
+                        },
+                        series: [{
+                            name: countryNameDisplay,
+                            type: 'map',
+                            map: countryCode,
+                            roam: true,
+                            emphasis: {
+                                label: {
+                                    show: true
+                                },
+                                itemStyle: {
+                                    areaColor: '#ff6b6b'
+                                }
+                            },
+                            data: []
+                        }]
+                    };
+                    
+                    myChart.setOption(option, true);
+                    currentMapName = countryCode;
+                    document.getElementById('current-map-name').textContent = countryNameDisplay;
+                })
+                .catch(error => {
+                    console.error('加载国家地图失败:', error);
+                    alert('抱歉，该国家的地图数据暂不可用。\n支持的国家：中国、美国、日本、英国、法国、德国、俄罗斯、印度、巴西、澳大利亚等。');
+                });
+        }
+        
+        // 处理地图点击事件
+        myChart.on('click', function(params) {
+            if (currentMapName === 'world') {
+                // 在世界地图上点击
+                const clickedCountry = params.name;
+                const countryCode = countryMap[clickedCountry];
+                
+                if (countryCode) {
+                    // 特殊处理中国
+                    if (countryCode === 'china') {
+                        loadCountryMap('中国', '100000');
+                    } else if (countryCode === 'usa') {
+                        loadCountryMap('美国', 'usa');
+                    } else if (countryCode === 'japan') {
+                        loadCountryMap('日本', '100000'); // 使用通用代码
+                    } else {
+                        // 尝试使用国家名称作为代码
+                        loadCountryMap(clickedCountry, countryCode);
+                    }
+                } else {
+                    // 尝试直接使用国家名称加载
+                    console.log('尝试加载国家:', clickedCountry);
+                    // 对于没有映射的国家，显示提示
+                    alert('点击了: ' + clickedCountry + '\n该国家的地图数据暂不可用。');
+                }
+            }
+        });
+        
+        // 返回世界地图
+        function resetToWorld() {
+            loadWorldMap();
+            currentMapName = 'world';
+            document.getElementById('current-map-name').textContent = '世界地图';
+        }
+        
+        // 切换地图类型
+        function toggleMapType() {
+            if (currentMapType === 'map') {
+                currentMapType = 'scatter';
+                // 这里可以切换到散点图模式
+                alert('地图类型切换功能开发中...');
+            } else {
+                currentMapType = 'map';
+            }
+        }
+        
+        // 响应式调整
+        window.addEventListener('resize', function() {
+            myChart.resize();
+        });
+        
+        // 初始化加载世界地图
+        loadWorldMap();
+    </script>
+</body>
+</html>

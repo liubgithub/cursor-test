@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 语音转文字</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #5a67d8;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn.recording {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status.idle {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .status.connecting {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .status.recording {
+            background: #c6f6d5;
+            color: #38a169;
+        }
+        
+        .audio-visualizer {
+            width: 100%;
+            height: 100px;
+            background: #1a202c;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .wave-bar {
+            width: 4px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            margin: 0 1px;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+        
+        .result-area {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 200px;
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .text-content {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .config-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .config-item {
+            margin-bottom: 15px;
+        }
+        
+        .config-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .config-item select, .config-item input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #fc8181;
+        }
+        
+        .info-message {
+            background: #bee3f8;
+            color: #2b6cb0;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #90cdf4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 WebRTC 语音转文字</h1>
+        
+        <div class="config-panel">
+            <h3>配置设置</h3>
+            <div class="config-item">
+                <label for="appId">讯飞 App ID:</label>
+                <input type="text" id="appId" placeholder="请输入讯飞开放平台的App ID">
+            </div>
+            <div class="config-item">
+                <label for="apiKey">API Key:</label>
+                <input type="text" id="apiKey" placeholder="请输入API Key">
+            </div>
+            <div class="config-item">
+                <label for="apiSecret">API Secret:</label>
+                <input type="text" id="apiSecret" placeholder="请输入API Secret">
+            </div>
+            <div class="config-item">
+                <label for="language">识别语言:</label>
+                <select id="language">
+                    <option value="zh_cn">中文普通话</option>
+                    <option value="en_us">英文</option>
+                    <option value="zh_cn|en_us">中英混合</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn">开始录音</button>
+            <button id="stopBtn" class="btn" disabled>停止录音</button>
+            <button id="clearBtn" class="btn">清除结果</button>
+        </div>
+        
+        <div id="status" class="status idle">就绪</div>
+        
+        <div class="audio-visualizer" id="visualizer">
+            <div class="info-message">音频可视化区域</div>
+        </div>
+        
+        <div class="result-area">
+            <h3>识别结果:</h3>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+    <script>
+        class XunfeiASR {
+            constructor() {
+                this.ws = null;
+                this.audioContext = null;
+                this.mediaStream = null;
+                this.processor = null;
+                this.isRecording = false;
+                this.resultCallback = null;
+                this.statusCallback = null;
+                this.visualizerCallback = null;
+                
+                // 配置参数
+                this.config = {
+                    appId: '',
+                    apiKey: '',
+                    apiSecret: '',
+                    language: 'zh_cn',
+                    domain: 'iat',
+                    accent: 'mandarin',
+                    sampleRate: 16000
+                };
+            }
+            
+            setConfig(config) {
+                Object.assign(this.config, config);
+            }
+            
+            setCallbacks(resultCallback, statusCallback, visualizerCallback) {
+                this.resultCallback = resultCallback;
+                this.statusCallback = statusCallback;
+                this.visualizerCallback = visualizerCallback;
+            }
+            
+            async startRecording() {
+                try {
+                    this.statusCallback && this.statusCallback('connecting', '正在连接...');
+                    
+                    // 获取音频流
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: this.config.sampleRate,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        }
+                    });
+                    
+                    // 创建音频上下文
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: this.config.sampleRate
+                    });
+                    
+                    const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+                    
+                    // 创建音频处理器
+                    this.processor = this.audioContext.createScriptProcessor(1024, 1, 1);
+                    
+                    // 连接WebSocket
+                    await this.connectWebSocket();
+                    
+                    // 处理音频数据
+                    this.processor.onaudioprocess = (e) => {
+                        if (this.isRecording && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            
+                            // 音频可视化
+                            this.updateVisualizer(inputData);
+                            
+                            // 转换为16位PCM
+                            const pcmData = this.float32ToPCM16(inputData);
+                            
+                            // 发送音频数据
+                            this.ws.send(pcmData);
+                        }
+                    };
+                    
+                    source.connect(this.processor);
+                    this.processor.connect(this.audioContext.destination);
+                    
+                    this.isRecording = true;
+                    this.statusCallback && this.statusCallback('recording', '正在录音...');
+                    
+                } catch (error) {
+                    console.error('启动录音失败:', error);
+                    this.statusCallback && this.statusCallback('error', '启动录音失败: ' + error.message);
+                    throw error;
+                }
+            }
+            
+            stopRecording() {
+                this.isRecording = false;
+                
+                if (this.processor) {
+                    this.processor.disconnect();
+                    this.processor = null;
+                }
+                
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+                
+                if (this.mediaStream) {
+                    this.mediaStream.getTracks().forEach(track => track.stop());
+                    this.mediaStream = null;
+                }
+                
+                if (this.ws) {
+                    // 发送结束标志
+                    this.ws.send(JSON.stringify({
+                        "end": true
+                    }));
+                    
+                    setTimeout(() => {
+                        if (this.ws) {
+                            this.ws.close();
+                            this.ws = null;
+                        }
+                    }, 1000);
+                }
+                
+                this.statusCallback && this.statusCallback('idle', '已停止录音');
+            }
+            
+            async connectWebSocket() {
+                return new Promise((resolve, reject) => {
+                    const url = this.getWebSocketUrl();
+                    this.ws = new WebSocket(url);
+                    
+                    this.ws.onopen = () => {
+                        console.log('WebSocket连接已建立');
+                        resolve();
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            this.handleMessage(data);
+                        } catch (error) {
+                            console.error('解析消息失败:', error);
+                        }
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket错误:', error);
+                        reject(error);
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('WebSocket连接已关闭');
+                    };
+                });
+            }
+            
+            getWebSocketUrl() {
+                const host = 'ws-api.xfyun.cn';
+                const path = '/v2/iat';
+                const date = new Date().toUTCString();
+                
+                // 生成签名
+                const signatureOrigin = `host: ${host}\ndate: ${date}\nGET ${path} HTTP/1.1`;
+                const signature = CryptoJS.HmacSHA256(signatureOrigin, this.config.apiSecret).toString(CryptoJS.enc.Base64);
+                
+                const authorization = `api_key="${this.config.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+                const authorizationBase64 = btoa(authorization);
+                
+                const params = new URLSearchParams({
+                    authorization: authorizationBase64,
+                    date: date,
+                    host: host
+                });
+                
+                return `wss://${host}${path}?${params.toString()}`;
+            }
+            
+            handleMessage(data) {
+                if (data.code !== 0) {
+                    console.error('识别错误:', data.message);
+                    this.statusCallback && this.statusCallback('error', '识别错误: ' + data.message);
+                    return;
+                }
+                
+                if (data.data && data.data.result) {
+                    const result = data.data.result;
+                    let text = '';
+                    
+                    if (result.ws) {
+                        result.ws.forEach(ws => {
+                            ws.cw.forEach(cw => {
+                                text += cw.w;
+                            });
+                        });
+                    }
+                    
+                    if (text && this.resultCallback) {
+                        this.resultCallback(text, data.data.status === 2);
+                    }
+                }
+            }
+            
+            float32ToPCM16(float32Array) {
+                const buffer = new ArrayBuffer(float32Array.length * 2);
+                const view = new DataView(buffer);
+                
+                for (let i = 0; i < float32Array.length; i++) {
+                    let sample = Math.max(-1, Math.min(1, float32Array[i]));
+                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(i * 2, sample, true);
+                }
+                
+                return buffer;
+            }
+            
+            updateVisualizer(audioData) {
+                if (!this.visualizerCallback) return;
+                
+                // 计算音频的RMS值
+                let sum = 0;
+                for (let i = 0; i < audioData.length; i++) {
+                    sum += audioData[i] * audioData[i];
+                }
+                const rms = Math.sqrt(sum / audioData.length);
+                const volume = Math.min(rms * 10, 1); // 放大并限制在0-1之间
+                
+                this.visualizerCallback(volume);
+            }
+        }
+        
+        // 应用逻辑
+        class VoiceToTextApp {
+            constructor() {
+                this.asr = new XunfeiASR();
+                this.results = [];
+                this.currentText = '';
+                this.waveBars = [];
+                
+                this.initElements();
+                this.initEventListeners();
+                this.createVisualizer();
+                this.setupASRCallbacks();
+            }
+            
+            initElements() {
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.status = document.getElementById('status');
+                this.results = document.getElementById('results');
+                this.visualizer = document.getElementById('visualizer');
+                
+                // 配置输入框
+                this.appIdInput = document.getElementById('appId');
+                this.apiKeyInput = document.getElementById('apiKey');
+                this.apiSecretInput = document.getElementById('apiSecret');
+                this.languageSelect = document.getElementById('language');
+            }
+            
+            initEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startRecording());
+                this.stopBtn.addEventListener('click', () => this.stopRecording());
+                this.clearBtn.addEventListener('click', () => this.clearResults());
+            }
+            
+            createVisualizer() {
+                this.visualizer.innerHTML = '';
+                for (let i = 0; i < 50; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'wave-bar';
+                    bar.style.height = '2px';
+                    this.visualizer.appendChild(bar);
+                    this.waveBars.push(bar);
+                }
+            }
+            
+            setupASRCallbacks() {
+                this.asr.setCallbacks(
+                    (text, isFinal) => this.handleResult(text, isFinal),
+                    (status, message) => this.updateStatus(status, message),
+                    (volume) => this.updateVisualizer(volume)
+                );
+            }
+            
+            async startRecording() {
+                // 验证配置
+                const config = this.getConfig();
+                if (!this.validateConfig(config)) {
+                    return;
+                }
+                
+                this.asr.setConfig(config);
+                
+                try {
+                    await this.asr.startRecording();
+                    this.startBtn.disabled = true;
+                    this.startBtn.classList.add('recording');
+                    this.stopBtn.disabled = false;
+                    this.currentText = '';
+                } catch (error) {
+                    this.showError('启动录音失败: ' + error.message);
+                }
+            }
+            
+            stopRecording() {
+                this.asr.stopRecording();
+                this.startBtn.disabled = false;
+                this.startBtn.classList.remove('recording');
+                this.stopBtn.disabled = true;
+                this.resetVisualizer();
+            }
+            
+            getConfig() {
+                return {
+                    appId: this.appIdInput.value.trim(),
+                    apiKey: this.apiKeyInput.value.trim(),
+                    apiSecret: this.apiSecretInput.value.trim(),
+                    language: this.languageSelect.value
+                };
+            }
+            
+            validateConfig(config) {
+                if (!config.appId || !config.apiKey || !config.apiSecret) {
+                    this.showError('请填写完整的讯飞开放平台配置信息');
+                    return false;
+                }
+                return true;
+            }
+            
+            handleResult(text, isFinal) {
+                if (isFinal) {
+                    // 最终结果
+                    this.addResult(text);
+                    this.currentText = '';
+                } else {
+                    // 临时结果
+                    this.currentText = text;
+                    this.updateCurrentResult();
+                }
+            }
+            
+            addResult(text) {
+                if (!text.trim()) return;
+                
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                const timestamp = document.createElement('div');
+                timestamp.className = 'timestamp';
+                timestamp.textContent = new Date().toLocaleTimeString();
+                
+                const content = document.createElement('div');
+                content.className = 'text-content';
+                content.textContent = text;
+                
+                resultItem.appendChild(timestamp);
+                resultItem.appendChild(content);
+                
+                this.results.appendChild(resultItem);
+                this.results.scrollTop = this.results.scrollHeight;
+            }
+            
+            updateCurrentResult() {
+                let currentResultElement = document.querySelector('.current-result');
+                
+                if (!currentResultElement) {
+                    currentResultElement = document.createElement('div');
+                    currentResultElement.className = 'result-item current-result';
+                    currentResultElement.style.opacity = '0.7';
+                    currentResultElement.style.fontStyle = 'italic';
+                    
+                    const timestamp = document.createElement('div');
+                    timestamp.className = 'timestamp';
+                    timestamp.textContent = '识别中...';
+                    
+                    const content = document.createElement('div');
+                    content.className = 'text-content';
+                    
+                    currentResultElement.appendChild(timestamp);
+                    currentResultElement.appendChild(content);
+                    
+                    this.results.appendChild(currentResultElement);
+                }
+                
+                const content = currentResultElement.querySelector('.text-content');
+                content.textContent = this.currentText;
+                
+                this.results.scrollTop = this.results.scrollHeight;
+            }
+            
+            updateStatus(status, message) {
+                this.status.className = `status ${status}`;
+                this.status.textContent = message;
+                
+                if (status === 'idle') {
+                    // 移除临时结果
+                    const currentResult = document.querySelector('.current-result');
+                    if (currentResult) {
+                        currentResult.remove();
+                    }
+                }
+            }
+            
+            updateVisualizer(volume) {
+                this.waveBars.forEach((bar, index) => {
+                    const height = Math.random() * volume * 80 + 2;
+                    bar.style.height = height + 'px';
+                    bar.style.opacity = 0.5 + volume * 0.5;
+                });
+            }
+            
+            resetVisualizer() {
+                this.waveBars.forEach(bar => {
+                    bar.style.height = '2px';
+                    bar.style.opacity = '0.3';
+                });
+            }
+            
+            clearResults() {
+                this.results.innerHTML = '<h3>识别结果:</h3>';
+            }
+            
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                
+                this.results.appendChild(errorDiv);
+                
+                setTimeout(() => {
+                    errorDiv.remove();
+                }, 5000);
+            }
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new VoiceToTextApp();
+        });
+        
+        // 检查浏览器兼容性
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('您的浏览器不支持音频录制功能，请使用现代浏览器（Chrome、Firefox、Safari等）');
+        }
+    </script>
+</body>
+</html>

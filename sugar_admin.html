@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甘蔗大数据分析后台管理系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="./lib/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .main-content-wrapper {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .main-content-wrapper.show {
+            display: flex;
+        }
+
+        /* Header */
+        .header {
+            background: #fff;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+
+        .header .user-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .header .user-info a {
+            color: #4fc3f7;
+            text-decoration: none;
+            margin-left: 10px;
+        }
+
+        .header .user-info a:hover {
+            text-decoration: underline;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #fff;
+            border-right: 2px solid #e0e0e0;
+            overflow-y: auto;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+        }
+
+        .menu-item {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .menu-title {
+            padding: 15px 20px;
+            cursor: pointer;
+            color: #333;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+
+        .menu-title:hover {
+            background: #f5f5f5;
+        }
+
+        .menu-title.active {
+            background: #ffebee;
+            color: #4fc3f7;
+        }
+
+        .menu-title .arrow {
+            transition: transform 0.3s;
+        }
+
+        .menu-title.expanded .arrow {
+            transform: rotate(90deg);
+        }
+
+        .submenu {
+            display: none;
+            background: #fafafa;
+        }
+
+        .submenu.show {
+            display: block;
+        }
+
+        .submenu-item {
+            padding: 12px 20px 12px 40px;
+            cursor: pointer;
+            color: #666;
+            transition: background 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .submenu-item:hover {
+            background: #f0f0f0;
+        }
+
+        .submenu-item.active {
+            background: #ffebee;
+            color: #4fc3f7;
+            border-left-color: #4fc3f7;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f5f5f5;
+        }
+
+        .content-panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .content-panel h2 {
+            color: #4fc3f7;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #ffebee;
+            padding-bottom: 10px;
+        }
+
+        /* 地图筛选条件面板样式 */
+        .map-filter-panel {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-label {
+            font-size: 14px;
+            color: #4fc3f7;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        
+        .filter-select,
+        .filter-input {
+            padding: 8px 12px;
+            background: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            color: #333;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-select:hover,
+        .filter-input:hover {
+            border-color: #4fc3f7;
+        }
+        
+        .filter-select:focus,
+        .filter-input:focus {
+            border-color: #4fc3f7;
+            box-shadow: 0 0 8px rgba(79, 195, 247, 0.2);
+        }
+        
+        .filter-select {
+            min-width: 140px;
+            cursor: pointer;
+        }
+        
+        .filter-input {
+            width: 100px;
+        }
+        
+        .filter-range-separator {
+            color: #666;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+
+        .map-container {
+            width: 100%;
+            height: 500px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #ffebee;
+            color: #4fc3f7;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #ffebee 0%, #fff 100%);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4fc3f7;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* 登录注册页面样式 */
+        .login-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .login-title {
+            text-align: center;
+            font-size: 28px;
+            color: #4fc3f7;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .login-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .login-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            color: #666;
+            font-size: 16px;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .login-tab.active {
+            color: #4fc3f7;
+            border-bottom-color: #4fc3f7;
+            font-weight: bold;
+        }
+
+        .login-form {
+            display: none;
+        }
+
+        .login-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #4fc3f7;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            background: #42b3d5;
+        }
+
+        .register-btn {
+            width: 100%;
+            padding: 12px;
+            background: #4fc3f7;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+
+        .register-btn:hover {
+            background: #42b3d5;
+        }
+
+        /* 表格操作按钮样式 */
+        .table-actions {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .table-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .table-btn-add {
+            background: #4fc3f7;
+            color: #fff;
+        }
+
+        .table-btn-add:hover {
+            background: #42b3d5;
+        }
+
+        .table-btn-update {
+            background: #66bb6a;
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .table-btn-update:hover {
+            background: #4caf50;
+        }
+
+        .table-btn-delete {
+            background: #ef5350;
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .table-btn-delete:hover {
+            background: #e53935;
+        }
+
+        .table-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* 编辑弹框样式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 500px;
+            max-width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h3 {
+            color: #4fc3f7;
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s;
+        }
+
+        .modal-close:hover {
+            color: #4fc3f7;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-field {
+            margin-bottom: 15px;
+        }
+
+        .modal-field label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .modal-field input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .modal-field input:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+
+        .modal-field input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #d0d0d0;
+        }
+
+        .modal-btn-save {
+            background: #4fc3f7;
+            color: #fff;
+        }
+
+        .modal-btn-save:hover {
+            background: #42b3d5;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录注册页面 -->
+    <div class="login-container" id="loginContainer">
+        <div class="login-box">
+            <h2 class="login-title">甘蔗数据管理系统</h2>
+            <div class="login-tabs">
+                <div class="login-tab active" onclick="switchTab('login')">登录</div>
+                <div class="login-tab" onclick="switchTab('register')">注册</div>
+            </div>
+            
+            <!-- 登录表单 -->
+            <div class="login-form active" id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="loginUsername" placeholder="请输入用户名" onkeypress="if(event.key==='Enter') handleLogin()" />
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="loginPassword" placeholder="请输入密码" onkeypress="if(event.key==='Enter') handleLogin()" />
+                </div>
+                <button class="login-btn" onclick="handleLogin()">登录</button>
+            </div>
+            
+            <!-- 注册表单 -->
+            <div class="login-form" id="registerForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="registerUsername" placeholder="请输入用户名" />
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="registerPassword" placeholder="请输入密码" />
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="registerConfirmPassword" placeholder="请再次输入密码" />
+                </div>
+                <button class="register-btn" onclick="handleRegister()">注册</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container main-content-wrapper" id="mainContentWrapper">
+        <!-- Header -->
+        <div class="header">
+            <h1>甘蔗数据管理系统</h1>
+            <div class="user-info">
+                <span>admin</span>
+                <a href="#" onclick="logout()">注销</a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>1. 种植面积</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('area-remote')">遥感监测数据</div>
+                        <div class="submenu-item" onclick="showContent('area-statistics')">统计报表数据</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>2. 单产</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('yield-model')">模型预测数据</div>
+                        <div class="submenu-item" onclick="showContent('yield-history')">历史单产数据</div>
+                        <div class="submenu-item" onclick="showContent('yield-drone')">无人机监测数据</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>3. 出糖率</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('sugar-remote')">遥感模型预测</div>
+                        <div class="submenu-item" onclick="showContent('sugar-factory')">糖厂调研数据</div>
+                        <div class="submenu-item" onclick="showContent('sugar-weather')">气象模型预测</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>4. 天气数据</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('weather-temp')">温度数据</div>
+                        <div class="submenu-item" onclick="showContent('weather-rain')">降雨数据</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>5. 调研验证数据</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('survey-yield')">单产数据</div>
+                        <div class="submenu-item" onclick="showContent('survey-area')">面积数据</div>
+                        <div class="submenu-item" onclick="showContent('survey-sugar')">出糖率数据</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>6. 糖厂分布</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('factory-map')">产业布局地图</div>
+                        <div class="submenu-item" onclick="showContent('factory-stats')">产能统计</div>
+                        <div class="submenu-item" onclick="showContent('factory-rating')">评级统计</div>
+                    </div>
+                </div>
+
+                <div class="menu-item">
+                    <div class="menu-title" onclick="toggleMenu(this)">
+                        <span>7. 糖产量预测</span>
+                        <span class="arrow">▶</span>
+                    </div>
+                    <div class="submenu">
+                        <div class="submenu-item" onclick="showContent('predict-forecast')">产量预测</div>
+                        <div class="submenu-item" onclick="showContent('predict-history')">历史数据</div>
+                        <div class="submenu-item" onclick="showContent('predict-compare')">同比环比对照</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area" id="contentArea">
+                <div class="content-panel">
+                    <h2>欢迎使用甘蔗数据管理系统</h2>
+                    <p>请从左侧菜单选择功能模块查看数据</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑弹框 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑数据</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label>行政区</label>
+                    <input type="text" id="editRegion" disabled>
+                </div>
+                <div class="modal-field">
+                    <label>数值</label>
+                    <input type="number" id="editValue" step="0.01">
+                </div>
+                <div class="modal-field">
+                    <label>单位</label>
+                    <input type="text" id="editUnit" disabled>
+                </div>
+                <div class="modal-field">
+                    <label>更新时间</label>
+                    <input type="text" id="editUpdateTime" disabled>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">取消</button>
+                <button class="modal-btn modal-btn-save" onclick="saveEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 切换登录/注册标签页
+        function switchTab(tab) {
+            const loginTab = document.querySelector('.login-tab:first-child');
+            const registerTab = document.querySelector('.login-tab:last-child');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (tab === 'login') {
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                loginForm.classList.add('active');
+                registerForm.classList.remove('active');
+            } else {
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
+                loginForm.classList.remove('active');
+                registerForm.classList.add('active');
+            }
+        }
+
+        // 处理登录
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                alert('请输入用户名和密码');
+                return;
+            }
+            
+            // 这里可以添加实际的登录验证逻辑
+            // 目前只是简单的验证
+            if (username === 'admin' && password === '123456') {
+                // 隐藏登录页面
+                document.getElementById('loginContainer').style.display = 'none';
+                // 显示主内容
+                document.getElementById('mainContentWrapper').classList.add('show');
+                // 更新用户信息
+                const userInfo = document.querySelector('.user-info span');
+                if (userInfo) {
+                    userInfo.textContent = username;
+                }
+                // 初始化主内容
+                initMainContent();
+            } else {
+                alert('用户名或密码错误');
+                return;
+            }
+        }
+
+        // 处理注册
+        function handleRegister() {
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            if (!username || !password || !confirmPassword) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                alert('两次输入的密码不一致');
+                return;
+            }
+            
+            // 这里可以添加实际的注册逻辑
+            alert('注册成功！请登录');
+            // 切换到登录标签页
+            switchTab('login');
+            // 清空注册表单
+            document.getElementById('registerUsername').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('registerConfirmPassword').value = '';
+        }
+
+        // 生成随机数据
+        function generateRandomData(count, min, max) {
+            return Array.from({length: count}, () => Math.floor(Math.random() * (max - min + 1)) + min);
+        }
+
+        function generateRegionData() {
+            const regions = ['南宁市', '柳州市', '桂林市', '梧州市', '北海市', '防城港市', '钦州市', '贵港市', '玉林市', '百色市', '贺州市', '河池市', '来宾市', '崇左市'];
+            return regions.map(region => ({
+                name: region,
+                value: Math.floor(Math.random() * 50000) + 10000
+            }));
+        }
+
+        // WMS图层配置（从sugar_dashboard.html中获取）
+        const wmsLayerConfig = [
+            {
+                name: 'plant',
+                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi/MapServer/WmsServer',
+                layers: '1',
+                format: 'image/png',
+                transparent: true,
+                title: '甘蔗种植分布'
+            },
+            {
+                name: 'production',
+                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi/MapServer/WmsServer',
+                layers: '0',
+                format: 'image/png',
+                transparent: true,
+                title: '甘蔗产量分布'
+            }
+        ];
+
+        // 存储每个地图容器的WMS图层引用
+        const wmsLayerMap = {};
+
+        // 根据数值获取颜色（温度：10-36度，蓝色到红色）
+        function getTemperatureColor(value) {
+            const min = 10;
+            const max = 36;
+            let normalized = (value - min) / (max - min);
+            normalized = Math.max(0, Math.min(1, normalized)); // 限制在0-1之间
+            
+            // 从蓝色(低温)到红色(高温)
+            if (normalized < 0.33) {
+                // 蓝色系
+                const r = Math.floor(100 + normalized * 155 / 0.33);
+                const g = Math.floor(150 + normalized * 105 / 0.33);
+                const b = 255;
+                return `rgb(${r}, ${g}, ${b})`;
+            } else if (normalized < 0.66) {
+                // 绿色到黄色
+                const r = 255;
+                const g = Math.floor(255 - (normalized - 0.33) * 255 / 0.33);
+                const b = Math.floor(100 - (normalized - 0.33) * 100 / 0.33);
+                return `rgb(${r}, ${g}, ${b})`;
+            } else {
+                // 黄色到红色
+                const r = 255;
+                const g = Math.floor(255 - (normalized - 0.66) * 255 / 0.34);
+                const b = 0;
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
+
+        // 根据数值获取颜色（降雨：100-500mm，浅蓝到深蓝）
+        function getRainfallColor(value) {
+            const min = 100;
+            const max = 500;
+            let normalized = (value - min) / (max - min);
+            normalized = Math.max(0, Math.min(1, normalized)); // 限制在0-1之间
+            
+            // 从浅蓝色到深蓝色
+            const r = Math.floor(173 - normalized * 173);
+            const g = Math.floor(216 - normalized * 100);
+            const b = Math.floor(230 - normalized * 30);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // 创建图例
+        function createLegend(map, type, min, max) {
+            const legend = L.control({ position: 'bottomright' });
+            
+            legend.onAdd = function() {
+                const div = L.DomUtil.create('div', 'legend');
+                div.style.backgroundColor = 'white';
+                div.style.padding = '10px';
+                div.style.borderRadius = '5px';
+                div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                
+                div.innerHTML = `<strong>${type === 'temp' ? '温度(°C)' : '降雨量(mm)'}</strong><br>`;
+                
+                const steps = 5;
+                for (let i = steps; i >= 0; i--) {
+                    const value = min + (max - min) * (i / steps);
+                    const color = type === 'temp' ? getTemperatureColor(value) : getRainfallColor(value);
+                    const label = type === 'temp' ? value.toFixed(1) : value.toFixed(0);
+                    div.innerHTML += `<div style="margin: 3px 0;">
+                        <span style="display: inline-block; width: 20px; height: 15px; background: ${color}; border: 1px solid #333; margin-right: 5px;"></span>
+                        ${label}
+                    </div>`;
+                }
+                
+                return div;
+            };
+            
+            legend.addTo(map);
+        }
+
+        // 初始化地图
+        function initMap(containerId, data, contentId) {
+            const container = document.getElementById(containerId);
+            if (!container) return null;
+
+            // 清除之前的地图
+            container.innerHTML = '';
+            const tk = '9ca2e0ffb0e586fd627aa716a9149423';
+            // 聚焦到崇左市，缩放级别为9（崇左市坐标约：22.4, 107.4）
+            const map = L.map(containerId).setView([22.4, 107.4], 9);
+            
+            // 天地图遥感影像底图
+            L.tileLayer(`http://t{s}.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${tk}`, {
+                subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+                attribution: '© 国家基础地理信息中心',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // 天地图遥感影像注记
+            L.tileLayer(`http://t{s}.tianditu.gov.cn/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${tk}`, {
+                subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
+                attribution: '© 国家基础地理信息中心',
+                maxZoom: 18
+            }).addTo(map);
+
+            // 判断是否是温度或降雨数据页面
+            const isTempData = contentId === 'weather-temp';
+            const isRainData = contentId === 'weather-rain';
+
+            if (isTempData || isRainData) {
+                // 为温度或降雨数据添加分层设色面状图层
+                // 从文件加载广西GeoJSON数据
+                fetch('data/guangxi.geojson')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('加载GeoJSON数据失败');
+                        }
+                        return response.json();
+                    })
+                    .then(guangxiGeoJSON => {
+                        // 创建数据映射
+                        const dataMap = {};
+                        data.forEach(item => {
+                            dataMap[item.name] = item.value;
+                        });
+
+                        // 创建数据映射的GeoJSON
+                        const styledGeoJSON = {
+                            ...guangxiGeoJSON,
+                            features: guangxiGeoJSON.features.map(feature => {
+                                // 尝试从不同的属性字段获取城市名称
+                                const regionName = feature.properties.name || 
+                                                 feature.properties.NAME || 
+                                                 feature.properties.市名 ||
+                                                 feature.properties.city ||
+                                                 '';
+                                const value = dataMap[regionName] || (isTempData ? 20 : 250);
+                                
+                                return {
+                                    ...feature,
+                                    properties: {
+                                        ...feature.properties,
+                                        name: regionName,
+                                        value: value
+                                    }
+                                };
+                            })
+                        };
+
+                        // 添加分层设色图层
+                        const choroplethLayer = L.geoJSON(styledGeoJSON, {
+                            style: function(feature) {
+                                const value = feature.properties.value;
+                                const color = isTempData ? getTemperatureColor(value) : getRainfallColor(value);
+                                
+                                return {
+                                    fillColor: color,
+                                    fillOpacity: 0.7,
+                                    color: '#333',
+                                    weight: 2,
+                                    opacity: 0.8
+                                };
+                            },
+                            onEachFeature: function(feature, layer) {
+                                const value = feature.properties.value;
+                                const regionName = feature.properties.name || 
+                                                 feature.properties.NAME || 
+                                                 feature.properties.市名 ||
+                                                 feature.properties.city ||
+                                                 '未知';
+                                const label = isTempData ? `${value.toFixed(1)}°C` : `${value.toFixed(0)}mm`;
+                                layer.bindPopup(`<strong>${regionName}</strong><br>${isTempData ? '温度' : '降雨量'}: ${label}`);
+                            }
+                        });
+
+                        choroplethLayer.addTo(map);
+
+                        // 调整地图视图到广西全域
+                        const bounds = choroplethLayer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [20, 20] });
+                            // 放大一级
+                            setTimeout(() => {
+                                map.zoomIn();
+                            }, 100);
+                        }
+
+                        // 添加图例
+                        const min = isTempData ? 10 : 100;
+                        const max = isTempData ? 36 : 500;
+                        createLegend(map, isTempData ? 'temp' : 'rain', min, max);
+
+                        // 存储图层引用
+                        wmsLayerMap[containerId] = {
+                            map: map,
+                            choroplethLayer: choroplethLayer,
+                            contentId: contentId,
+                            geoJSON: guangxiGeoJSON,
+                            isTempData: isTempData,
+                            isRainData: isRainData
+                        };
+                    })
+                    .catch(error => {
+                        console.error('加载广西GeoJSON数据失败:', error);
+                        // 如果加载失败，显示错误信息
+                        const errorDiv = document.createElement('div');
+                        errorDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 5px; z-index: 1000;';
+                        errorDiv.textContent = '加载地图数据失败，请检查 data/guangxi.geojson 文件';
+                        container.appendChild(errorDiv);
+                    });
+            } else {
+                // 其他页面使用WMS图层
+                // 随机选择一个WMS图层配置
+                const randomConfig = wmsLayerConfig[Math.floor(Math.random() * wmsLayerConfig.length)];
+                
+                // 创建WMS图层
+                const wmsLayer = L.tileLayer.wms(randomConfig.url, {
+                    layers: randomConfig.layers,
+                    format: randomConfig.format,
+                    transparent: randomConfig.transparent,
+                    opacity: 0.7,
+                    attribution: ''
+                });
+                
+                wmsLayer.addTo(map);
+                
+                // 加载GeoJSON数据以获取广西边界，然后调整地图视图
+                fetch('data/guangxi.geojson')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('加载GeoJSON数据失败');
+                        }
+                        return response.json();
+                    })
+                    .then(guangxiGeoJSON => {
+                        // 创建临时图层来获取边界
+                        const tempLayer = L.geoJSON(guangxiGeoJSON);
+                        const bounds = tempLayer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [20, 20] });
+                            // 放大一级
+                            setTimeout(() => {
+                                map.zoomIn();
+                            }, 100);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载广西GeoJSON数据失败:', error);
+                        // 如果加载失败，使用固定的广西边界坐标
+                        const guangxiBounds = [[20.5, 104.0], [26.5, 112.0]];
+                        map.fitBounds(guangxiBounds, { padding: [20, 20] });
+                        // 放大一级
+                        setTimeout(() => {
+                            map.zoomIn();
+                        }, 100);
+                    });
+                
+                // 存储WMS图层引用，以便后续切换
+                wmsLayerMap[containerId] = {
+                    map: map,
+                    currentLayer: wmsLayer,
+                    currentConfig: randomConfig
+                };
+            }
+
+            return map;
+        }
+
+        // 更新分层设色图层的数据
+        function updateChoroplethLayer(mapId) {
+            const mapData = wmsLayerMap[mapId];
+            if (!mapData || !mapData.choroplethLayer) return;
+            
+            const isTempData = mapData.isTempData;
+            const isRainData = mapData.isRainData;
+            
+            if (!isTempData && !isRainData) return;
+            
+            // 更新每个图层的样式和弹窗
+            mapData.choroplethLayer.eachLayer(function(layer) {
+                const feature = layer.feature;
+                if (!feature) return;
+                
+                const regionName = feature.properties.name || 
+                                 feature.properties.NAME || 
+                                 feature.properties.市名 ||
+                                 feature.properties.city ||
+                                 '';
+                
+                // 生成新的随机值
+                let value;
+                if (isTempData) {
+                    value = Math.random() * (36 - 10) + 10;
+                } else if (isRainData) {
+                    value = Math.random() * (500 - 100) + 100;
+                } else {
+                    return;
+                }
+                
+                // 更新属性值
+                feature.properties.value = value;
+                
+                // 更新样式
+                const color = isTempData ? getTemperatureColor(value) : getRainfallColor(value);
+                layer.setStyle({
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    color: '#333',
+                    weight: 2,
+                    opacity: 0.8
+                });
+                
+                // 更新弹窗
+                const label = isTempData ? `${value.toFixed(1)}°C` : `${value.toFixed(0)}mm`;
+                layer.bindPopup(`<strong>${regionName}</strong><br>${isTempData ? '温度' : '降雨量'}: ${label}`);
+            });
+        }
+
+        // 初始化地图筛选条件事件处理
+        function initMapFilters(mapId) {
+            // 存储筛选状态
+            if (!window.mapFilterStates) {
+                window.mapFilterStates = {};
+            }
+            
+            if (!window.mapFilterStates[mapId]) {
+                window.mapFilterStates[mapId] = {
+                    time: '2025',
+                    region: 'all',
+                    valueMin: null,
+                    valueMax: null
+                };
+            }
+            
+            const filterState = window.mapFilterStates[mapId];
+            
+            // 更新地图筛选
+            function updateMapFilter() {
+                console.log(`地图 ${mapId} 筛选条件更新:`, filterState);
+                
+                const mapData = wmsLayerMap[mapId];
+                if (mapData && mapData.map) {
+                    // 如果是温度或降雨数据页面，且时间选择改变，更新分层设色图层
+                    if ((mapData.isTempData || mapData.isRainData) && filterState.time) {
+                        updateChoroplethLayer(mapId);
+                    }
+                    
+                    // 如果选择了具体地区，可以调整地图视图到该地区
+                    if (filterState.region !== 'all') {
+                        // 可以根据地区名称调整地图视图
+                        // 这里可以添加地区坐标映射
+                        const regionCoords = {
+                            '南宁市': [22.8, 108.3],
+                            '柳州市': [24.3, 109.4],
+                            '桂林市': [25.3, 110.3],
+                            '梧州市': [23.5, 111.3],
+                            '北海市': [21.5, 109.1],
+                            '防城港市': [21.6, 108.3],
+                            '钦州市': [21.9, 108.7],
+                            '贵港市': [23.1, 109.6],
+                            '玉林市': [22.6, 110.2],
+                            '百色市': [23.9, 106.6],
+                            '贺州市': [24.4, 111.6],
+                            '河池市': [24.7, 108.1],
+                            '来宾市': [23.7, 109.2],
+                            '崇左市': [22.4, 107.4]
+                        };
+                        
+                        const coords = regionCoords[filterState.region];
+                        if (coords) {
+                            mapData.map.setView(coords, 10);
+                        }
+                    }
+                }
+            }
+            
+            // 时间选择事件
+            const timeSelect = document.querySelector(`.map-time-select[data-map-id="${mapId}"]`);
+            if (timeSelect) {
+                timeSelect.addEventListener('change', function(e) {
+                    filterState.time = e.target.value;
+                    updateMapFilter();
+                });
+            }
+            
+            // 地区选择事件
+            const regionSelect = document.querySelector(`.map-region-select[data-map-id="${mapId}"]`);
+            if (regionSelect) {
+                regionSelect.addEventListener('change', function(e) {
+                    filterState.region = e.target.value;
+                    updateMapFilter();
+                });
+            }
+            
+            // 值范围输入事件
+            const valueMinInput = document.querySelector(`.map-value-min[data-map-id="${mapId}"]`);
+            const valueMaxInput = document.querySelector(`.map-value-max[data-map-id="${mapId}"]`);
+            
+            if (valueMinInput) {
+                valueMinInput.addEventListener('change', function(e) {
+                    const value = parseFloat(e.target.value);
+                    filterState.valueMin = isNaN(value) ? null : value;
+                    updateMapFilter();
+                });
+                
+                valueMinInput.addEventListener('blur', function(e) {
+                    const value = parseFloat(e.target.value);
+                    filterState.valueMin = isNaN(value) ? null : value;
+                    updateMapFilter();
+                });
+            }
+            
+            if (valueMaxInput) {
+                valueMaxInput.addEventListener('change', function(e) {
+                    const value = parseFloat(e.target.value);
+                    filterState.valueMax = isNaN(value) ? null : value;
+                    updateMapFilter();
+                });
+                
+                valueMaxInput.addEventListener('blur', function(e) {
+                    const value = parseFloat(e.target.value);
+                    filterState.valueMax = isNaN(value) ? null : value;
+                    updateMapFilter();
+                });
+            }
+        }
+
+        // 创建图表
+        function createChart(canvasId, type, labels, datasets) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return null;
+
+            const ctx = canvas.getContext('2d');
+            return new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: canvasId.replace(/-/g, ' ').toUpperCase()
+                        }
+                    }
+                }
+            });
+        }
+
+        // 切换菜单展开/收起
+        function toggleMenu(element) {
+            const submenu = element.nextElementSibling;
+            element.classList.toggle('expanded');
+            submenu.classList.toggle('show');
+        }
+
+        // 显示内容
+        function showContent(contentId) {
+            // 移除所有active状态
+            document.querySelectorAll('.submenu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // 添加当前active状态（通过查找包含该contentId的菜单项）
+            const items = document.querySelectorAll('.submenu-item');
+            items.forEach(item => {
+                const onclickAttr = item.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes(contentId)) {
+                    item.classList.add('active');
+                }
+            });
+
+            // 显示对应内容
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = getContentHTML(contentId);
+            
+            // 初始化对应的图表和地图（每次切换菜单时，地图会重新初始化并随机选择WMS图层）
+            setTimeout(() => {
+                initContent(contentId);
+            }, 100);
+        }
+
+        // 获取内容HTML
+        function getContentHTML(contentId) {
+            const contents = {
+                'area-remote': {
+                    title: '种植面积 - 遥感监测数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'areaRemoteMap',
+                    chartId: 'areaRemoteChart'
+                },
+                'area-statistics': {
+                    title: '种植面积 - 统计报表数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'areaStatisticsMap',
+                    chartId: 'areaStatisticsChart'
+                },
+                'yield-model': {
+                    title: '单产 - 模型预测数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'yieldModelMap',
+                    chartId: 'yieldModelChart'
+                },
+                'yield-history': {
+                    title: '单产 - 历史单产数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'yieldHistoryMap',
+                    chartId: 'yieldHistoryChart'
+                },
+                'yield-drone': {
+                    title: '单产 - 无人机监测数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'yieldDroneMap',
+                    chartId: 'yieldDroneChart'
+                },
+                'sugar-remote': {
+                    title: '出糖率 - 遥感模型预测',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'sugarRemoteMap',
+                    chartId: 'sugarRemoteChart'
+                },
+                'sugar-factory': {
+                    title: '出糖率 - 糖厂调研数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'sugarFactoryMap',
+                    chartId: 'sugarFactoryChart'
+                },
+                'sugar-weather': {
+                    title: '出糖率 - 气象模型预测',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'sugarWeatherMap',
+                    chartId: 'sugarWeatherChart'
+                },
+                'weather-temp': {
+                    title: '天气数据 - 温度',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'weatherTempMap',
+                    chartId: 'weatherTempChart'
+                },
+                'weather-rain': {
+                    title: '天气数据 - 降雨',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'weatherRainMap',
+                    chartId: 'weatherRainChart'
+                },
+                'survey-yield': {
+                    title: '调研验证数据 - 单产',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'surveyYieldChart'
+                },
+                'survey-area': {
+                    title: '调研验证数据 - 面积',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'surveyAreaChart'
+                },
+                'survey-sugar': {
+                    title: '调研验证数据 - 出糖率',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'surveySugarChart'
+                },
+                'factory-map': {
+                    title: '糖厂分布 - 产业布局地图',
+                    hasMap: true,
+                    hasChart: false,
+                    hasTable: true,
+                    mapId: 'factoryMap'
+                },
+                'factory-stats': {
+                    title: '糖厂分布 - 产能统计',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'factoryStatsChart'
+                },
+                'factory-rating': {
+                    title: '糖厂分布 - 评级统计',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'factoryRatingChart'
+                },
+                'predict-forecast': {
+                    title: '糖产量预测 - 预测数据',
+                    hasMap: true,
+                    hasChart: true,
+                    hasTable: true,
+                    mapId: 'predictForecastMap',
+                    chartId: 'predictForecastChart'
+                },
+                'predict-history': {
+                    title: '糖产量预测 - 历史数据',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'predictHistoryChart'
+                },
+                'predict-compare': {
+                    title: '糖产量预测 - 同比环比对照',
+                    hasMap: false,
+                    hasChart: true,
+                    hasTable: true,
+                    chartId: 'predictCompareChart'
+                }
+            };
+
+            const config = contents[contentId];
+            if (!config) return '<div class="content-panel"><h2>内容未找到</h2></div>';
+
+            let html = `<div class="content-panel">
+                <h2>${config.title}</h2>`;
+
+            // 统计卡片
+            if (contentId.includes('area')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">总种植面积</div>
+                        <div class="value">${(Math.random() * 500000 + 100000).toFixed(0)} 亩</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">同比增长</div>
+                        <div class="value">+${(Math.random() * 10 + 2).toFixed(1)}%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">环比增长</div>
+                        <div class="value">+${(Math.random() * 5 + 1).toFixed(1)}%</div>
+                    </div>
+                </div>`;
+            } else if (contentId.includes('yield')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">平均单产</div>
+                        <div class="value">${(Math.random() * 2000 + 3000).toFixed(0)} 公斤/亩</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">最高单产</div>
+                        <div class="value">${(Math.random() * 1000 + 4500).toFixed(0)} 公斤/亩</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">最低单产</div>
+                        <div class="value">${(Math.random() * 500 + 2500).toFixed(0)} 公斤/亩</div>
+                    </div>
+                </div>`;
+            } else if (contentId.includes('sugar')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">平均出糖率</div>
+                        <div class="value">${(Math.random() * 3 + 12).toFixed(2)}%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">最高出糖率</div>
+                        <div class="value">${(Math.random() * 2 + 14).toFixed(2)}%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">最低出糖率</div>
+                        <div class="value">${(Math.random() * 2 + 11).toFixed(2)}%</div>
+                    </div>
+                </div>`;
+            } else if (contentId.includes('weather')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">${contentId.includes('temp') ? '平均温度' : '总降雨量'}</div>
+                        <div class="value">${contentId.includes('temp') ? (Math.random() * 10 + 20).toFixed(1) + '°C' : (Math.random() * 400 + 100).toFixed(0) + 'mm'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">${contentId.includes('temp') ? '最高温度' : '最大降雨'}</div>
+                        <div class="value">${contentId.includes('temp') ? (Math.random() * 5 + 28).toFixed(1) + '°C' : (Math.random() * 200 + 300).toFixed(0) + 'mm'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">${contentId.includes('temp') ? '最低温度' : '最小降雨'}</div>
+                        <div class="value">${contentId.includes('temp') ? (Math.random() * 5 + 15).toFixed(1) + '°C' : (Math.random() * 100 + 100).toFixed(0) + 'mm'}</div>
+                    </div>
+                </div>`;
+            } else if (contentId.includes('factory')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">糖厂总数</div>
+                        <div class="value">${Math.floor(Math.random() * 50 + 30)} 家</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">总产能</div>
+                        <div class="value">${(Math.random() * 500 + 200).toFixed(0)} 万吨/年</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">平均产能</div>
+                        <div class="value">${(Math.random() * 10 + 5).toFixed(1)} 万吨/年</div>
+                    </div>
+                </div>`;
+            } else if (contentId.includes('predict')) {
+                html += `<div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">预测产量</div>
+                        <div class="value">${(Math.random() * 100 + 50).toFixed(0)} 万吨</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">同比增长</div>
+                        <div class="value">+${(Math.random() * 8 + 2).toFixed(1)}%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">环比增长</div>
+                        <div class="value">+${(Math.random() * 5 + 1).toFixed(1)}%</div>
+                    </div>
+                </div>`;
+            }
+
+            // 地图
+            if (config.hasMap) {
+                html += `<div class="content-panel">
+                    <h2>空间地理数据</h2>
+                    <!-- 地图筛选条件面板 -->
+                    <div class="map-filter-panel" id="${config.mapId}-filter">
+                        <div class="filter-group">
+                            <span class="filter-label">时间选择:</span>
+                            <select class="filter-select map-time-select" data-map-id="${config.mapId}">
+                                <option value="2025">2025年</option>
+                                <option value="2024">2024年</option>
+                                <option value="2023">2023年</option>
+                                <option value="2022">2022年</option>
+                                <option value="all">全部</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">地区选择:</span>
+                            <select class="filter-select map-region-select" data-map-id="${config.mapId}">
+                                <option value="all">全部地区</option>
+                                <option value="南宁市">南宁市</option>
+                                <option value="柳州市">柳州市</option>
+                                <option value="桂林市">桂林市</option>
+                                <option value="梧州市">梧州市</option>
+                                <option value="北海市">北海市</option>
+                                <option value="防城港市">防城港市</option>
+                                <option value="钦州市">钦州市</option>
+                                <option value="贵港市">贵港市</option>
+                                <option value="玉林市">玉林市</option>
+                                <option value="百色市">百色市</option>
+                                <option value="贺州市">贺州市</option>
+                                <option value="河池市">河池市</option>
+                                <option value="来宾市">来宾市</option>
+                                <option value="崇左市">崇左市</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <span class="filter-label">值范围:</span>
+                            <input type="number" class="filter-input map-value-min" data-map-id="${config.mapId}" placeholder="最小值" step="0.01">
+                            <span class="filter-range-separator">至</span>
+                            <input type="number" class="filter-input map-value-max" data-map-id="${config.mapId}" placeholder="最大值" step="0.01">
+                        </div>
+                    </div>
+                    <div class="map-container" id="${config.mapId}"></div>
+                </div>`;
+            }
+
+            // 图表
+            if (config.hasChart) {
+                html += `<div class="content-panel">
+                    <h2>数据图表</h2>
+                    <div class="chart-container">
+                        <canvas id="${config.chartId}"></canvas>
+                    </div>
+                </div>`;
+            }
+
+            // 表格
+            if (config.hasTable) {
+                html += `<div class="content-panel">
+                    <h2>数据表格</h2>
+                    <div class="table-actions">
+                        <button class="table-btn table-btn-add" onclick="handleAdd('${contentId}')">添加</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="${contentId}-table">
+                            <thead>
+                                <tr>
+                                    <th>行政区</th>
+                                    <th>数值</th>
+                                    <th>单位</th>
+                                    <th>更新时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="${contentId}-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // 初始化内容
+        function initContent(contentId) {
+            const regionData = generateRegionData();
+            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+            // 初始化地图
+            if (contentId.includes('map') || contentId.includes('area') || contentId.includes('yield') || 
+                contentId.includes('sugar') || contentId.includes('weather') || contentId.includes('predict-forecast')) {
+                const mapIds = {
+                    'area-remote': 'areaRemoteMap',
+                    'area-statistics': 'areaStatisticsMap',
+                    'yield-model': 'yieldModelMap',
+                    'yield-history': 'yieldHistoryMap',
+                    'yield-drone': 'yieldDroneMap',
+                    'sugar-remote': 'sugarRemoteMap',
+                    'sugar-factory': 'sugarFactoryMap',
+                    'sugar-weather': 'sugarWeatherMap',
+                    'weather-temp': 'weatherTempMap',
+                    'weather-rain': 'weatherRainMap',
+                    'factory-map': 'factoryMap',
+                    'predict-forecast': 'predictForecastMap'
+                };
+                const mapId = mapIds[contentId];
+                if (mapId) {
+                    // 对于温度或降雨数据，生成合适范围的数据
+                    let mapData = regionData;
+                    if (contentId === 'weather-temp') {
+                        mapData = regionData.map(item => ({
+                            name: item.name,
+                            value: Math.random() * (36 - 10) + 10
+                        }));
+                    } else if (contentId === 'weather-rain') {
+                        mapData = regionData.map(item => ({
+                            name: item.name,
+                            value: Math.random() * (500 - 100) + 100
+                        }));
+                    }
+                    initMap(mapId, mapData, contentId);
+                    // 初始化地图筛选条件事件处理
+                    initMapFilters(mapId);
+                }
+            }
+
+            // 初始化图表
+            if (contentId.includes('chart') || contentId.includes('area') || contentId.includes('yield') || 
+                contentId.includes('sugar') || contentId.includes('weather') || contentId.includes('survey') || 
+                contentId.includes('factory') || contentId.includes('predict')) {
+                const chartIds = {
+                    'area-remote': 'areaRemoteChart',
+                    'area-statistics': 'areaStatisticsChart',
+                    'yield-model': 'yieldModelChart',
+                    'yield-history': 'yieldHistoryChart',
+                    'yield-drone': 'yieldDroneChart',
+                    'sugar-remote': 'sugarRemoteChart',
+                    'sugar-factory': 'sugarFactoryChart',
+                    'sugar-weather': 'sugarWeatherChart',
+                    'weather-temp': 'weatherTempChart',
+                    'weather-rain': 'weatherRainChart',
+                    'survey-yield': 'surveyYieldChart',
+                    'survey-area': 'surveyAreaChart',
+                    'survey-sugar': 'surveySugarChart',
+                    'factory-stats': 'factoryStatsChart',
+                    'factory-rating': 'factoryRatingChart',
+                    'predict-forecast': 'predictForecastChart',
+                    'predict-history': 'predictHistoryChart',
+                    'predict-compare': 'predictCompareChart'
+                };
+                const chartId = chartIds[contentId];
+                if (chartId) {
+                    let chartType = 'bar';
+                    let labels = regionData.map(d => d.name);
+                    let datasets = [];
+
+                    if (contentId.includes('weather-temp') || contentId.includes('weather-rain')) {
+                        chartType = 'line';
+                        labels = months;
+                        datasets = [{
+                            label: contentId.includes('temp') ? '温度(°C)' : '降雨量(mm)',
+                            data: generateRandomData(12, contentId.includes('temp') ? 15 : 100, contentId.includes('temp') ? 30 : 500),
+                            borderColor: '#d32f2f',
+                            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                            tension: 0.4
+                        }];
+                    } else if (contentId.includes('predict-history')) {
+                        chartType = 'line';
+                        labels = ['2020', '2021', '2022', '2023', '2024'];
+                        datasets = [{
+                            label: '历史产量(万吨)',
+                            data: generateRandomData(5, 40, 80),
+                            borderColor: '#d32f2f',
+                            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                            tension: 0.4
+                        }];
+                    } else if (contentId.includes('predict-compare')) {
+                        chartType = 'bar';
+                        labels = ['同比', '环比'];
+                        datasets = [{
+                            label: '增长率(%)',
+                            data: [Math.random() * 8 + 2, Math.random() * 5 + 1],
+                            backgroundColor: ['#d32f2f', '#ff7043']
+                        }];
+                    } else if (contentId.includes('factory-rating')) {
+                        chartType = 'pie';
+                        labels = ['A级', 'B级', 'C级', 'D级'];
+                        datasets = [{
+                            data: [Math.random() * 20 + 10, Math.random() * 15 + 8, Math.random() * 10 + 5, Math.random() * 5 + 2],
+                            backgroundColor: ['#d32f2f', '#ff7043', '#ffa726', '#ffcc02']
+                        }];
+                    } else {
+                        datasets = [{
+                            label: '数据值',
+                            data: regionData.map(d => d.value),
+                            backgroundColor: 'rgba(211, 47, 47, 0.6)',
+                            borderColor: '#d32f2f',
+                            borderWidth: 1
+                        }];
+                    }
+
+                    createChart(chartId, chartType, labels, datasets);
+                }
+            }
+
+            // 初始化表格
+            const tableBody = document.getElementById(`${contentId}-table-body`);
+            if (tableBody) {
+                const units = {
+                    'area': '亩',
+                    'yield': '公斤/亩',
+                    'sugar': '%',
+                    'weather-temp': '°C',
+                    'weather-rain': 'mm',
+                    'survey': '吨',
+                    'factory': '万吨/年',
+                    'predict': '万吨'
+                };
+                let unit = '单位';
+                for (let key in units) {
+                    if (contentId.includes(key)) {
+                        unit = units[key];
+                        break;
+                    }
+                }
+
+                // 根据内容类型生成合适的数据
+                let tableData = regionData;
+                if (contentId === 'weather-temp') {
+                    // 温度数据：10-36度
+                    tableData = regionData.map(item => ({
+                        name: item.name,
+                        value: Math.random() * (36 - 10) + 10
+                    }));
+                } else if (contentId === 'weather-rain') {
+                    // 降雨数据：100-500mm
+                    tableData = regionData.map(item => ({
+                        name: item.name,
+                        value: Math.random() * (500 - 100) + 100
+                    }));
+                }
+
+                tableData.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    // 根据数据类型格式化数值显示
+                    let displayValue;
+                    if (contentId === 'weather-temp') {
+                        displayValue = item.value.toFixed(1);
+                    } else if (contentId === 'weather-rain') {
+                        displayValue = item.value.toFixed(0);
+                    } else {
+                        displayValue = item.value.toLocaleString();
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${item.name}</td>
+                        <td>${displayValue}</td>
+                        <td>${unit}</td>
+                        <td>2024-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}</td>
+                        <td>
+                            <div class="table-btn-group">
+                                <button class="table-btn table-btn-update" onclick="handleUpdate('${contentId}', ${index})">编辑</button>
+                                <button class="table-btn table-btn-delete" onclick="handleDelete('${contentId}', ${index})">删除</button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+        }
+
+        // 存储当前编辑的行信息
+        let currentEditInfo = null;
+
+        // 表格操作函数
+        function handleAdd(contentId) {
+            // 添加功能待实现
+            console.log('添加操作:', contentId);
+        }
+
+        function handleUpdate(contentId, index) {
+            // 获取表格行数据
+            const tableBody = document.getElementById(`${contentId}-table-body`);
+            if (!tableBody) return;
+
+            const rows = tableBody.querySelectorAll('tr');
+            if (index >= rows.length) return;
+
+            const row = rows[index];
+            const cells = row.querySelectorAll('td');
+            
+            // 获取当前行的数据
+            const region = cells[0].textContent.trim();
+            const value = cells[1].textContent.trim();
+            const unit = cells[2].textContent.trim();
+            const updateTime = cells[3].textContent.trim();
+
+            // 存储编辑信息
+            currentEditInfo = {
+                contentId: contentId,
+                index: index,
+                row: row
+            };
+
+            // 填充弹框数据
+            document.getElementById('editRegion').value = region;
+            document.getElementById('editValue').value = value.replace(/,/g, ''); // 移除千分位逗号
+            document.getElementById('editUnit').value = unit;
+            document.getElementById('editUpdateTime').value = updateTime;
+
+            // 显示弹框
+            document.getElementById('editModal').classList.add('show');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('show');
+            currentEditInfo = null;
+        }
+
+        function saveEdit() {
+            if (!currentEditInfo) return;
+
+            const newValue = document.getElementById('editValue').value;
+            if (!newValue || isNaN(newValue)) {
+                alert('请输入有效的数值');
+                return;
+            }
+
+            const contentId = currentEditInfo.contentId;
+            const index = currentEditInfo.index;
+            const row = currentEditInfo.row;
+            const cells = row.querySelectorAll('td');
+
+            // 格式化数值显示
+            let displayValue;
+            if (contentId === 'weather-temp') {
+                displayValue = parseFloat(newValue).toFixed(1);
+            } else if (contentId === 'weather-rain') {
+                displayValue = parseFloat(newValue).toFixed(0);
+            } else {
+                displayValue = parseFloat(newValue).toLocaleString();
+            }
+
+            // 更新表格中的数值
+            cells[1].textContent = displayValue;
+
+            // 更新更新时间
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            cells[3].textContent = `${year}-${month}-${day}`;
+
+            // 关闭弹框
+            closeEditModal();
+            
+            alert('保存成功！');
+        }
+
+        function handleDelete(contentId, index) {
+            // 删除功能待实现
+            console.log('删除操作:', contentId, index);
+        }
+
+        // 注销功能
+        function logout() {
+            if (confirm('确定要注销登录吗？')) {
+                // 显示登录页面
+                document.getElementById('loginContainer').style.display = 'flex';
+                // 隐藏主内容
+                document.getElementById('mainContentWrapper').classList.remove('show');
+                // 清空登录表单
+                document.getElementById('loginUsername').value = '';
+                document.getElementById('loginPassword').value = '';
+            }
+        }
+
+        // 页面加载时的初始化
+        window.onload = function() {
+            // 确保登录页面显示，主内容隐藏
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('mainContentWrapper').classList.remove('show');
+            
+            // 添加弹框外部点击关闭功能
+            const editModal = document.getElementById('editModal');
+            editModal.addEventListener('click', function(e) {
+                if (e.target === editModal) {
+                    closeEditModal();
+                }
+            });
+            
+            // 添加ESC键关闭弹框功能
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && editModal.classList.contains('show')) {
+                    closeEditModal();
+                }
+            });
+        };
+
+        // 初始化主内容（在登录后调用）
+        function initMainContent() {
+            const firstMenu = document.querySelector('.menu-title');
+            if (firstMenu) {
+                toggleMenu(firstMenu);
+            }
+            // 默认显示遥感监测数据页面
+            setTimeout(() => {
+                const remoteMenuItem = document.querySelector('.submenu-item[onclick*="area-remote"]');
+                if (remoteMenuItem) {
+                    remoteMenuItem.click();
+                } else {
+                    // 如果找不到，手动调用
+                    showContent('area-remote');
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>

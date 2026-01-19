@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Frustum Intersection with Horizontal Plane</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+        }
+        canvas {
+            border: 1px solid #000;
+            margin-top: 20px;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+        }
+    </style>
+</head>
+<body>
+    <h1>有限视锥体与水平平面的交点计算</h1>
+    
+    <div class="input-group">
+        <label>视锥体顶点:</label>
+        <input type="number" id="fx" value="0" step="1"> X
+        <input type="number" id="fy" value="0" step="1"> Y
+        <input type="number" id="fz" value="100" step="1"> Z
+    </div>
+    
+    <div class="input-group">
+        <label>水平张角:</label>
+        <input type="number" id="h" value="90" step="1"> 度
+    </div>
+    
+    <div class="input-group">
+        <label>垂直张角:</label>
+        <input type="number" id="v" value="90" step="1"> 度
+    </div>
+    
+    <div class="input-group">
+        <label>Pitch角度:</label>
+        <input type="number" id="pitch" value="0" step="1"> 度
+    </div>
+    
+    <div class="input-group">
+        <label>Heading角度:</label>
+        <input type="number" id="heading" value="0" step="1"> 度
+    </div>
+    
+    <div class="input-group">
+        <label>视锥体深度:</label>
+        <input type="number" id="depth" value="80" step="1" min="1">
+    </div>
+    
+    <div class="input-group">
+        <label>平面高度:</label>
+        <input type="number" id="height" value="50" step="1">
+    </div>
+    
+    <button onclick="calculate()">计算交点</button>
+    
+    <div id="output"></div>
+    <div style="display: flex; gap: 20px;">
+        <div>
+            <h3>俯视图 (Top View)</h3>
+            <canvas id="canvas" width="800" height="600"></canvas>
+        </div>
+        <div>
+            <h3>侧视图 (Side View)</h3>
+            <canvas id="sideCanvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+    
+    <script>
+        // 将角度转换为弧度
+        function toRadians(degrees) {
+            return degrees * Math.PI / 180;
+        }
+        
+        // 向量运算
+        function vectorAdd(v1, v2) {
+            return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]];
+        }
+        
+        function vectorScale(v, scale) {
+            return [v[0] * scale, v[1] * scale, v[2] * scale];
+        }
+        
+        function vectorLength(v) {
+            return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        }
+        
+        function vectorNormalize(v) {
+            const len = vectorLength(v);
+            return len > 0 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 0, 0];
+        }
+        
+        // 计算有限视锥体与水平平面的交点
+        function calculateIntersections(f, h, v, pitch, heading, depth, height) {
+            // 将角度转换为弧度
+            const hRad = toRadians(h / 2);
+            const vRad = toRadians(v / 2);
+            const pitchRad = toRadians(pitch);
+            const headingRad = toRadians(heading);
+            
+            // 定义视锥体的四个方向向量（未旋转前）
+            // 左上、右上、右下、左下
+            const directions = [
+                [-Math.tan(hRad), Math.tan(vRad), -1], // 左上
+                [Math.tan(hRad), Math.tan(vRad), -1],  // 右上
+                [Math.tan(hRad), -Math.tan(vRad), -1], // 右下
+                [-Math.tan(hRad), -Math.tan(vRad), -1] // 左下
+            ];
+            
+            // 应用旋转变换并归一化
+            const rotatedDirections = directions.map(dir => {
+                // 首先绕x轴旋转pitch角度
+                let x = dir[0];
+                let y = dir[1] * Math.cos(pitchRad) - dir[2] * Math.sin(pitchRad);
+                let z = dir[1] * Math.sin(pitchRad) + dir[2] * Math.cos(pitchRad);
+                
+                // 然后绕z轴旋转heading角度
+                const xNew = x * Math.cos(headingRad) - y * Math.sin(headingRad);
+                const yNew = x * Math.sin(headingRad) + y * Math.cos(headingRad);
+                
+                return vectorNormalize([xNew, yNew, z]);
+            });
+            
+            // 计算视锥体底面的四个角点
+            const bottomCorners = rotatedDirections.map(dir => {
+                return vectorAdd(f, vectorScale(dir, depth));
+            });
+            
+            // 计算与平面的交点
+            const intersections = [];
+            const intersectionTypes = []; // 记录交点类型：'ray'(射线交点) 或 'bottom'(底面角点)
+            
+            for (let i = 0; i < rotatedDirections.length; i++) {
+                const dir = rotatedDirections[i];
+                const bottomCorner = bottomCorners[i];
+                
+                // 检查射线方向是否与平面相交
+                if (Math.abs(dir[2]) < 1e-10) {
+                    // 射线平行于平面，使用底面角点
+                    intersections.push([bottomCorner[0], bottomCorner[1], height]);
+                    intersectionTypes.push('bottom');
+                } else {
+                    // 计算射线与平面的交点
+                    const t = (height - f[2]) / dir[2];
+                    
+                    if (t >= 0 && t <= depth) {
+                        // 交点在视锥体有效范围内
+                        const intersection = vectorAdd(f, vectorScale(dir, t));
+                        intersections.push(intersection);
+                        intersectionTypes.push('ray');
+                    } else if (t > depth) {
+                        // 交点超出视锥体深度，使用底面角点在平面上的投影
+                        intersections.push([bottomCorner[0], bottomCorner[1], height]);
+                        intersectionTypes.push('bottom');
+                    } else {
+                        // t < 0，射线朝向错误方向，这种情况下视锥体不与平面相交
+                        // 仍然使用底面角点作为参考
+                        intersections.push([bottomCorner[0], bottomCorner[1], height]);
+                        intersectionTypes.push('bottom');
+                    }
+                }
+            }
+            
+            return {
+                intersections: intersections,
+                types: intersectionTypes,
+                bottomCorners: bottomCorners
+            };
+        }
+        
+        // 绘制结果
+        function drawResults(f, result, depth) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            // 设置坐标系，使原点在中心，并缩放以便查看
+            ctx.translate(width / 2, height / 2);
+            const scale = 2;
+            ctx.scale(scale, scale);
+            
+            // 绘制坐标轴
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(-width / (2 * scale), 0);
+            ctx.lineTo(width / (2 * scale), 0);
+            ctx.moveTo(0, -height / (2 * scale));
+            ctx.lineTo(0, height / (2 * scale));
+            ctx.stroke();
+            
+            // 绘制视锥体顶点
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(f[0], -f[1], 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制视锥体底面
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(result.bottomCorners[0][0], -result.bottomCorners[0][1]);
+            for (let i = 1; i < result.bottomCorners.length; i++) {
+                ctx.lineTo(result.bottomCorners[i][0], -result.bottomCorners[i][1]);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            // 绘制视锥体边缘
+            ctx.strokeStyle = 'gray';
+            ctx.lineWidth = 0.5;
+            result.bottomCorners.forEach(corner => {
+                ctx.beginPath();
+                ctx.moveTo(f[0], -f[1]);
+                ctx.lineTo(corner[0], -corner[1]);
+                ctx.stroke();
+            });
+            
+            // 绘制交点
+            result.intersections.forEach((point, index) => {
+                if (result.types[index] === 'ray') {
+                    ctx.fillStyle = 'blue';
+                } else {
+                    ctx.fillStyle = 'purple';
+                }
+                ctx.beginPath();
+                ctx.arc(point[0], -point[1], 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // 绘制从视锥体顶点到交点的线
+            result.intersections.forEach((point, index) => {
+                if (result.types[index] === 'ray') {
+                    ctx.beginPath();
+                    ctx.moveTo(f[0], -f[1]);
+                    ctx.lineTo(point[0], -point[1]);
+                    ctx.stroke();
+                }
+            });
+            
+            // 绘制交点连线（形成多边形）
+            if (result.intersections.length > 0) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(result.intersections[0][0], -result.intersections[0][1]);
+                for (let i = 1; i < result.intersections.length; i++) {
+                    ctx.lineTo(result.intersections[i][0], -result.intersections[i][1]);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+            
+            // 重置变换
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // 添加图例
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText('红色圆点: 视锥体顶点', 10, 20);
+            ctx.fillText('蓝色圆点: 射线与平面交点', 10, 35);
+            ctx.fillText('紫色圆点: 底面投影交点', 10, 50);
+            ctx.fillText('橙色线: 视锥体底面', 10, 65);
+            ctx.fillText('灰色线: 视锥体边缘', 10, 80);
+            ctx.fillText('蓝色线: 交点连线', 10, 95);
+        }
+        
+        // 绘制侧视图
+        function drawSideView(f, result, h, v, pitch, heading, depth, planeHeight) {
+            const canvas = document.getElementById('sideCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, width, height);
+            
+            // 设置坐标系，使原点在中心下方
+            ctx.translate(width / 2, height * 0.8);
+            const scale = 3;
+            ctx.scale(scale, -scale); // Y轴向上
+            
+            // 绘制坐标轴
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            // X轴（水平方向）
+            ctx.moveTo(-width / (2 * scale), 0);
+            ctx.lineTo(width / (2 * scale), 0);
+            // Z轴（垂直方向）
+            ctx.moveTo(0, -height * 0.8 / scale);
+            ctx.lineTo(0, height * 0.2 / scale);
+            ctx.stroke();
+            
+            // 计算视锥体的中心方向向量（考虑pitch和heading）
+            const pitchRad = toRadians(pitch);
+            const headingRad = toRadians(heading);
+            const vRad = toRadians(v / 2);
+            
+            // 基础朝向是Z轴负方向 [0, 0, -1]
+            let centerDir = [0, 0, -1];
+            
+            // 应用pitch旋转（绕X轴）
+            let centerDirPitch = [
+                centerDir[0],
+                centerDir[1] * Math.cos(pitchRad) - centerDir[2] * Math.sin(pitchRad),
+                centerDir[1] * Math.sin(pitchRad) + centerDir[2] * Math.cos(pitchRad)
+            ];
+            
+            // 应用heading旋转（绕Z轴）
+            let centerDirFinal = [
+                centerDirPitch[0] * Math.cos(headingRad) - centerDirPitch[1] * Math.sin(headingRad),
+                centerDirPitch[0] * Math.sin(headingRad) + centerDirPitch[1] * Math.cos(headingRad),
+                centerDirPitch[2]
+            ];
+            
+            // 归一化中心方向
+            centerDirFinal = vectorNormalize(centerDirFinal);
+            
+            // 计算垂直张角的上下边界方向
+            // 在侧视图中，我们看的是XZ平面的投影，所以主要关注垂直方向的变化
+            
+            // 上边界：在中心方向基础上向上偏转v/2角度
+            // 下边界：在中心方向基础上向下偏转v/2角度
+            
+            // 计算上下边界在XZ平面的投影
+            // 这里我们使用简化的方法：在pitch角度基础上加减垂直张角
+            const topPitchAngle = pitch + v/2;
+            const bottomPitchAngle = pitch - v/2;
+            
+            const topPitchRad = toRadians(topPitchAngle);
+            const bottomPitchRad = toRadians(bottomPitchAngle);
+            
+            // 计算上下边界方向（在XZ平面投影，假设heading=0时的情况）
+            let topDir = [0, 0, -1];
+            let bottomDir = [0, 0, -1];
+            
+            // 应用pitch旋转
+            let topDirRotated = [
+                topDir[0],
+                topDir[1] * Math.cos(topPitchRad) - topDir[2] * Math.sin(topPitchRad),
+                topDir[1] * Math.sin(topPitchRad) + topDir[2] * Math.cos(topPitchRad)
+            ];
+            
+            let bottomDirRotated = [
+                bottomDir[0],
+                bottomDir[1] * Math.cos(bottomPitchRad) - bottomDir[2] * Math.sin(bottomPitchRad),
+                bottomDir[1] * Math.sin(bottomPitchRad) + bottomDir[2] * Math.cos(bottomPitchRad)
+            ];
+            
+            // 应用heading旋转
+            let topDirFinal = [
+                topDirRotated[0] * Math.cos(headingRad) - topDirRotated[1] * Math.sin(headingRad),
+                topDirRotated[0] * Math.sin(headingRad) + topDirRotated[1] * Math.cos(headingRad),
+                topDirRotated[2]
+            ];
+            
+            let bottomDirFinal = [
+                bottomDirRotated[0] * Math.cos(headingRad) - bottomDirRotated[1] * Math.sin(headingRad),
+                bottomDirRotated[0] * Math.sin(headingRad) + bottomDirRotated[1] * Math.cos(headingRad),
+                bottomDirRotated[2]
+            ];
+            
+            // 归一化方向向量
+            const topDirNorm = vectorNormalize(topDirFinal);
+            const bottomDirNorm = vectorNormalize(bottomDirFinal);
+            const centerDirNorm = vectorNormalize(centerDirFinal);
+            
+            // 计算底面边界点
+            const centerBottomPoint = vectorAdd(f, vectorScale(centerDirNorm, depth));
+            const topBottomPoint = vectorAdd(f, vectorScale(topDirNorm, depth));
+            const bottomBottomPoint = vectorAdd(f, vectorScale(bottomDirNorm, depth));
+            
+            // 绘制水平平面
+            ctx.strokeStyle = 'rgba(0, 200, 0, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-width / (2 * scale), planeHeight);
+            ctx.lineTo(width / (2 * scale), planeHeight);
+            ctx.stroke();
+            
+            // 绘制视锥体顶点
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(f[0], f[2], 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制视锥体中心线
+            ctx.strokeStyle = 'rgba(128, 128, 128, 0.8)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(f[0], f[2]);
+            ctx.lineTo(centerBottomPoint[0], centerBottomPoint[2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 绘制视锥体边缘线
+            ctx.strokeStyle = 'gray';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(f[0], f[2]);
+            ctx.lineTo(topBottomPoint[0], topBottomPoint[2]);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(f[0], f[2]);
+            ctx.lineTo(bottomBottomPoint[0], bottomBottomPoint[2]);
+            ctx.stroke();
+            
+            // 绘制视锥体底面（垂直线）
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(topBottomPoint[0], topBottomPoint[2]);
+            ctx.lineTo(bottomBottomPoint[0], bottomBottomPoint[2]);
+            ctx.stroke();
+            
+            // 计算并绘制射线与平面的交点
+            const intersectionPoints = [];
+            
+            // 检查上边界射线
+            if (Math.abs(topDirNorm[2]) > 1e-10) {
+                const t1 = (planeHeight - f[2]) / topDirNorm[2];
+                if (t1 >= 0 && t1 <= depth) {
+                    const intersection1 = vectorAdd(f, vectorScale(topDirNorm, t1));
+                    intersectionPoints.push(intersection1);
+                    
+                    ctx.fillStyle = 'blue';
+                    ctx.beginPath();
+                    ctx.arc(intersection1[0], intersection1[2], 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制射线
+                    ctx.strokeStyle = 'green';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(f[0], f[2]);
+                    ctx.lineTo(intersection1[0], intersection1[2]);
+                    ctx.stroke();
+                }
+            }
+            
+            // 检查下边界射线
+            if (Math.abs(bottomDirNorm[2]) > 1e-10) {
+                const t2 = (planeHeight - f[2]) / bottomDirNorm[2];
+                if (t2 >= 0 && t2 <= depth) {
+                    const intersection2 = vectorAdd(f, vectorScale(bottomDirNorm, t2));
+                    intersectionPoints.push(intersection2);
+                    
+                    ctx.fillStyle = 'blue';
+                    ctx.beginPath();
+                    ctx.arc(intersection2[0], intersection2[2], 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制射线
+                    ctx.strokeStyle = 'green';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(f[0], f[2]);
+                    ctx.lineTo(intersection2[0], intersection2[2]);
+                    ctx.stroke();
+                }
+            }
+            
+            // 检查中心射线
+            if (Math.abs(centerDirNorm[2]) > 1e-10) {
+                const t3 = (planeHeight - f[2]) / centerDirNorm[2];
+                if (t3 >= 0 && t3 <= depth) {
+                    const intersection3 = vectorAdd(f, vectorScale(centerDirNorm, t3));
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+                    ctx.beginPath();
+                    ctx.arc(intersection3[0], intersection3[2], 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制中心射线
+                    ctx.strokeStyle = 'rgba(0, 128, 0, 0.8)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(f[0], f[2]);
+                    ctx.lineTo(intersection3[0], intersection3[2]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+            
+            // 绘制交点连线（如果有两个交点）
+            if (intersectionPoints.length >= 2) {
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(intersectionPoints[0][0], intersectionPoints[0][2]);
+                ctx.lineTo(intersectionPoints[1][0], intersectionPoints[1][2]);
+                ctx.stroke();
+            }
+            
+            // 重置变换
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // 添加标签和说明
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText('红色圆点: 视锥体顶点', 10, 20);
+            ctx.fillText('绿色线: 水平平面', 10, 35);
+            ctx.fillText('蓝色圆点: 射线交点', 10, 50);
+            ctx.fillText('橙色线: 视锥体底面', 10, 65);
+            ctx.fillText('灰色实线: 视锥体边缘', 10, 80);
+            ctx.fillText('灰色虚线: 视锥体中心线', 10, 95);
+            
+            // 显示参数信息
+            ctx.fillText(`垂直张角: ${v}°`, 10, height - 100);
+            ctx.fillText(`俯仰角: ${pitch}°`, 10, height - 85);
+            ctx.fillText(`航向角: ${heading}°`, 10, height - 70);
+            ctx.fillText(`视锥体深度: ${depth}`, 10, height - 55);
+            ctx.fillText(`平面高度: ${planeHeight}`, 10, height - 40);
+            
+            // 坐标轴标签
+            ctx.fillText('X', width - 30, height * 0.8 + 15);
+            ctx.fillText('Z', width / 2 + 10, 15);
+        }
+        
+        // 主计算函数
+        function calculate() {
+            // 获取输入值
+            const fx = parseFloat(document.getElementById('fx').value);
+            const fy = parseFloat(document.getElementById('fy').value);
+            const fz = parseFloat(document.getElementById('fz').value);
+            const h = parseFloat(document.getElementById('h').value);
+            const v = parseFloat(document.getElementById('v').value);
+            const pitch = parseFloat(document.getElementById('pitch').value);
+            const heading = parseFloat(document.getElementById('heading').value);
+            const depth = parseFloat(document.getElementById('depth').value);
+            const height = parseFloat(document.getElementById('height').value);
+            
+            const f = [fx, fy, fz];
+            
+            // 计算交点
+            const result = calculateIntersections(f, h, v, pitch, heading, depth, height);
+            
+            // 显示结果
+            const output = document.getElementById('output');
+            output.innerHTML = '<h3>计算结果：</h3>';
+            
+            const pointNames = ['左上', '右上', '右下', '左下'];
+            result.intersections.forEach((point, index) => {
+                const type = result.types[index] === 'ray' ? '射线交点' : '底面投影';
+                output.innerHTML += `<p>${pointNames[index]} (${type}): (${point[0].toFixed(2)}, ${point[1].toFixed(2)}, ${point[2].toFixed(2)})</p>`;
+            });
+            
+            // 添加底面角点信息
+            output.innerHTML += '<h4>视锥体底面角点：</h4>';
+            result.bottomCorners.forEach((corner, index) => {
+                output.innerHTML += `<p>${pointNames[index]}: (${corner[0].toFixed(2)}, ${corner[1].toFixed(2)}, ${corner[2].toFixed(2)})</p>`;
+            });
+            
+            // 绘制结果
+            drawResults(f, result, depth);
+            
+            // 绘制侧视图
+            drawSideView(f, result, h, v, pitch, heading, depth, height);
+        }
+        
+        // 页面加载时自动计算一次
+        window.onload = calculate;
+    </script>
+</body>
+</html>

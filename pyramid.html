@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>四棱锥底面坐标计算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .visualization {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+        .coords-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .coords-table th, .coords-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .coords-table th {
+            background-color: #f2f2f2;
+        }
+        .legend {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .angle-info {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>四棱锥底面坐标计算器</h1>
+        
+        <div class="angle-info">
+            <strong>说明：</strong>水平张角和垂直张角决定了四棱锥的底面大小。底面宽度 = 2×h×tan(水平张角/2)，底面高度 = 2×h×tan(垂直张角/2)
+        </div>
+        
+        <div class="input-section">
+            <div>
+                <div class="input-group">
+                    <label>顶点坐标 A:</label>
+                    <input type="number" id="ax" value="0" step="0.1"> X
+                    <input type="number" id="ay" value="0" step="0.1"> Y
+                    <input type="number" id="az" value="100" step="0.1"> Z
+                </div>
+                
+                <div class="input-group">
+                    <label>俯仰角 (Pitch):</label>
+                    <input type="number" id="pitch" value="0" step="1" min="-90" max="90"> 度
+                </div>
+                
+                <div class="input-group">
+                    <label>方位角 (Heading):</label>
+                    <input type="number" id="heading" value="0" step="1" min="0" max="360"> 度
+                </div>
+            </div>
+            
+            <div>
+                <div class="input-group">
+                    <label>四棱锥高度 (h):</label>
+                    <input type="number" id="height" value="50" step="0.1" min="0.1"> 
+                </div>
+                
+                <div class="input-group">
+                    <label>水平张角 (Horizon):</label>
+                    <input type="number" id="horizon" value="60" step="1" min="1" max="179"> 度
+                </div>
+                
+                <div class="input-group">
+                    <label>垂直张角 (Vertical):</label>
+                    <input type="number" id="vertical" value="45" step="1" min="1" max="179"> 度
+                </div>
+            </div>
+        </div>
+        
+        <button onclick="calculatePyramid()">计算底面坐标</button>
+        <button onclick="resetValues()">重置参数</button>
+        
+        <div id="results" class="results" style="display: none;">
+            <h3>计算结果</h3>
+            <div id="sizeInfo" style="margin-bottom: 15px; padding: 10px; background-color: #f0f8ff; border-radius: 5px;">
+            </div>
+            <table class="coords-table">
+                <thead>
+                    <tr>
+                        <th>顶点</th>
+                        <th>X 坐标</th>
+                        <th>Y 坐标</th>
+                        <th>Z 坐标</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody id="coordsTableBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="visualization">
+            <div>
+                <h3>3D 透视图</h3>
+                <canvas id="canvas3d" width="500" height="400"></canvas>
+                <div class="legend">
+                    <p><span style="color: red;">●</span> 顶点A &nbsp;&nbsp; 
+                       <span style="color: blue;">●</span> 底面顶点 &nbsp;&nbsp;
+                       <span style="color: gray;">━</span> 棱边 &nbsp;&nbsp;
+                       <span style="color: orange;">━</span> 底面</p>
+                </div>
+            </div>
+            
+            <div>
+                <h3>俯视图 (XY平面)</h3>
+                <canvas id="canvasTop" width="500" height="400"></canvas>
+                <div class="legend">
+                    <p>从Z轴正方向向下观察</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 数学工具函数
+        function toRadians(degrees) {
+            return degrees * Math.PI / 180;
+        }
+        
+        function toDegrees(radians) {
+            return radians * 180 / Math.PI;
+        }
+        
+        // 向量运算
+        function vectorAdd(v1, v2) {
+            return [v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2]];
+        }
+        
+        function vectorScale(v, scale) {
+            return [v[0] * scale, v[1] * scale, v[2] * scale];
+        }
+        
+        function vectorLength(v) {
+            return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        }
+        
+        function vectorNormalize(v) {
+            const len = vectorLength(v);
+            return len > 0 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 0, 0];
+        }
+        
+        // 矩阵旋转
+        function rotateAroundX(point, angle) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [
+                point[0],
+                point[1] * cos - point[2] * sin,
+                point[1] * sin + point[2] * cos
+            ];
+        }
+        
+        function rotateAroundZ(point, angle) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [
+                point[0] * cos - point[1] * sin,
+                point[0] * sin + point[1] * cos,
+                point[2]
+            ];
+        }
+        
+        // 计算四棱锥底面坐标（基于视锥体角度）
+        function calculatePyramidBase(apex, pitch, heading, height, horizonAngle, verticalAngle) {
+            const pitchRad = toRadians(pitch);
+            const headingRad = toRadians(heading);
+            const horizonRad = toRadians(horizonAngle / 2);  // 半角
+            const verticalRad = toRadians(verticalAngle / 2); // 半角
+            
+            // 根据张角和高度计算底面的实际尺寸
+            const halfWidth = height * Math.tan(horizonRad);   // 底面半宽
+            const halfHeight = height * Math.tan(verticalRad); // 底面半高
+            
+            // 定义基础底面形状（在XY平面，以原点为中心）
+            const basePoints = [
+                [-halfWidth, -halfHeight, 0],  // 左下
+                [halfWidth, -halfHeight, 0],   // 右下
+                [halfWidth, halfHeight, 0],    // 右上
+                [-halfWidth, halfHeight, 0]    // 左上
+            ];
+            
+            // 计算四棱锥的朝向向量（从顶点指向底面中心）
+            // 基础朝向是Z轴负方向 [0, 0, -1]
+            let direction = [0, 0, -1];
+            
+            // 应用俯仰角旋转（绕X轴）
+            direction = rotateAroundX(direction, pitchRad);
+            
+            // 应用方位角旋转（绕Z轴）
+            direction = rotateAroundZ(direction, headingRad);
+            
+            // 归一化方向向量
+            direction = vectorNormalize(direction);
+            
+            // 计算底面中心点
+            const baseCenter = vectorAdd(apex, vectorScale(direction, height));
+            
+            // 对每个底面点应用旋转变换
+            const transformedPoints = basePoints.map(point => {
+                // 先应用俯仰角旋转
+                let rotated = rotateAroundX(point, pitchRad);
+                // 再应用方位角旋转
+                rotated = rotateAroundZ(rotated, headingRad);
+                // 平移到底面中心
+                return vectorAdd(baseCenter, rotated);
+            });
+            
+            return {
+                apex: apex,
+                baseCenter: baseCenter,
+                basePoints: transformedPoints,
+                direction: direction,
+                actualWidth: halfWidth * 2,
+                actualHeight: halfHeight * 2,
+                halfWidth: halfWidth,
+                halfHeight: halfHeight
+            };
+        }
+        
+        // 绘制3D透视图
+        function draw3D(pyramid) {
+            const canvas = document.getElementById('canvas3d');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // 设置投影参数
+            const scale = 2;
+            const offsetX = width / 2;
+            const offsetY = height / 2;
+            
+            // 简单的等轴投影
+            function project3D(point) {
+                const x = point[0] * scale + offsetX;
+                const y = -point[1] * scale + offsetY - point[2] * scale * 0.5;
+                return [x, y];
+            }
+            
+            // 绘制底面
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const firstPoint = project3D(pyramid.basePoints[0]);
+            ctx.moveTo(firstPoint[0], firstPoint[1]);
+            
+            for (let i = 1; i < pyramid.basePoints.length; i++) {
+                const point = project3D(pyramid.basePoints[i]);
+                ctx.lineTo(point[0], point[1]);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            // 填充底面
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.2)';
+            ctx.fill();
+            
+            // 绘制从顶点到底面各点的边
+            ctx.strokeStyle = 'gray';
+            ctx.lineWidth = 1;
+            const apexProj = project3D(pyramid.apex);
+            
+            pyramid.basePoints.forEach(basePoint => {
+                const baseProj = project3D(basePoint);
+                ctx.beginPath();
+                ctx.moveTo(apexProj[0], apexProj[1]);
+                ctx.lineTo(baseProj[0], baseProj[1]);
+                ctx.stroke();
+            });
+            
+            // 绘制顶点
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(apexProj[0], apexProj[1], 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制底面顶点
+            ctx.fillStyle = 'blue';
+            pyramid.basePoints.forEach((point, index) => {
+                const proj = project3D(point);
+                ctx.beginPath();
+                ctx.arc(proj[0], proj[1], 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 标注点序号
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText(`P${index + 1}`, proj[0] + 8, proj[1] - 8);
+                ctx.fillStyle = 'blue';
+            });
+            
+            // 绘制底面中心
+            ctx.fillStyle = 'green';
+            const centerProj = project3D(pyramid.baseCenter);
+            ctx.beginPath();
+            ctx.arc(centerProj[0], centerProj[1], 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // 绘制俯视图
+        function drawTopView(pyramid) {
+            const canvas = document.getElementById('canvasTop');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // 设置坐标系
+            const scale = 3;
+            const offsetX = width / 2;
+            const offsetY = height / 2;
+            
+            function projectTop(point) {
+                return [point[0] * scale + offsetX, -point[1] * scale + offsetY];
+            }
+            
+            // 绘制坐标轴
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(width, offsetY);
+            ctx.moveTo(offsetX, 0);
+            ctx.lineTo(offsetX, height);
+            ctx.stroke();
+            
+            // 绘制底面
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const firstPoint = projectTop(pyramid.basePoints[0]);
+            ctx.moveTo(firstPoint[0], firstPoint[1]);
+            
+            for (let i = 1; i < pyramid.basePoints.length; i++) {
+                const point = projectTop(pyramid.basePoints[i]);
+                ctx.lineTo(point[0], point[1]);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+            ctx.fill();
+            
+            // 绘制顶点投影
+            ctx.fillStyle = 'red';
+            const apexProj = projectTop(pyramid.apex);
+            ctx.beginPath();
+            ctx.arc(apexProj[0], apexProj[1], 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制底面顶点
+            ctx.fillStyle = 'blue';
+            pyramid.basePoints.forEach((point, index) => {
+                const proj = projectTop(point);
+                ctx.beginPath();
+                ctx.arc(proj[0], proj[1], 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 标注点序号
+                ctx.fillStyle = 'black';
+                ctx.font = '12px Arial';
+                ctx.fillText(`P${index + 1}`, proj[0] + 8, proj[1] - 8);
+                ctx.fillStyle = 'blue';
+            });
+            
+            // 绘制底面中心
+            ctx.fillStyle = 'green';
+            const centerProj = projectTop(pyramid.baseCenter);
+            ctx.beginPath();
+            ctx.arc(centerProj[0], centerProj[1], 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制投影连线
+            ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            pyramid.basePoints.forEach(basePoint => {
+                const baseProj = projectTop(basePoint);
+                ctx.beginPath();
+                ctx.moveTo(apexProj[0], apexProj[1]);
+                ctx.lineTo(baseProj[0], baseProj[1]);
+                ctx.stroke();
+            });
+            ctx.setLineDash([]);
+        }
+        
+        // 主计算函数
+        function calculatePyramid() {
+            // 获取输入值
+            const ax = parseFloat(document.getElementById('ax').value);
+            const ay = parseFloat(document.getElementById('ay').value);
+            const az = parseFloat(document.getElementById('az').value);
+            const pitch = parseFloat(document.getElementById('pitch').value);
+            const heading = parseFloat(document.getElementById('heading').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const horizon = parseFloat(document.getElementById('horizon').value);
+            const vertical = parseFloat(document.getElementById('vertical').value);
+            
+            const apex = [ax, ay, az];
+            
+            // 计算四棱锥
+            const pyramid = calculatePyramidBase(apex, pitch, heading, height, horizon, vertical);
+            
+            // 显示结果
+            displayResults(pyramid, horizon, vertical);
+            
+            // 绘制图形
+            draw3D(pyramid);
+            drawTopView(pyramid);
+        }
+        
+        // 显示计算结果
+        function displayResults(pyramid, horizon, vertical) {
+            const resultsDiv = document.getElementById('results');
+            const tbody = document.getElementById('coordsTableBody');
+            const sizeInfo = document.getElementById('sizeInfo');
+            
+            // 显示底面尺寸信息
+            sizeInfo.innerHTML = `
+                <strong>底面尺寸：</strong><br>
+                宽度：${pyramid.actualWidth.toFixed(2)} (水平张角: ${horizon}°)<br>
+                高度：${pyramid.actualHeight.toFixed(2)} (垂直张角: ${vertical}°)<br>
+                四棱锥高度：${document.getElementById('height').value}
+            `;
+            
+            tbody.innerHTML = '';
+            
+            // 添加顶点A
+            const apexRow = tbody.insertRow();
+            apexRow.innerHTML = `
+                <td><strong>A (顶点)</strong></td>
+                <td>${pyramid.apex[0].toFixed(2)}</td>
+                <td>${pyramid.apex[1].toFixed(2)}</td>
+                <td>${pyramid.apex[2].toFixed(2)}</td>
+                <td>四棱锥顶点</td>
+            `;
+            apexRow.style.backgroundColor = '#ffebee';
+            
+            // 添加底面中心
+            const centerRow = tbody.insertRow();
+            centerRow.innerHTML = `
+                <td><strong>C (中心)</strong></td>
+                <td>${pyramid.baseCenter[0].toFixed(2)}</td>
+                <td>${pyramid.baseCenter[1].toFixed(2)}</td>
+                <td>${pyramid.baseCenter[2].toFixed(2)}</td>
+                <td>底面中心</td>
+            `;
+            centerRow.style.backgroundColor = '#e8f5e8';
+            
+            // 添加底面四个顶点
+            const pointNames = ['P1 (左下)', 'P2 (右下)', 'P3 (右上)', 'P4 (左上)'];
+            pyramid.basePoints.forEach((point, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${pointNames[index]}</strong></td>
+                    <td>${point[0].toFixed(2)}</td>
+                    <td>${point[1].toFixed(2)}</td>
+                    <td>${point[2].toFixed(2)}</td>
+                    <td>底面顶点</td>
+                `;
+                if (index % 2 === 0) {
+                    row.style.backgroundColor = '#f8f9fa';
+                }
+            });
+            
+            resultsDiv.style.display = 'block';
+        }
+        
+        // 重置参数
+        function resetValues() {
+            document.getElementById('ax').value = 0;
+            document.getElementById('ay').value = 0;
+            document.getElementById('az').value = 100;
+            document.getElementById('pitch').value = 0;
+            document.getElementById('heading').value = 0;
+            document.getElementById('height').value = 50;
+            document.getElementById('horizon').value = 60;
+            document.getElementById('vertical').value = 45;
+            
+            document.getElementById('results').style.display = 'none';
+            
+            const canvas3d = document.getElementById('canvas3d');
+            const canvasTop = document.getElementById('canvasTop');
+            canvas3d.getContext('2d').clearRect(0, 0, canvas3d.width, canvas3d.height);
+            canvasTop.getContext('2d').clearRect(0, 0, canvasTop.width, canvasTop.height);
+        }
+        
+        // 页面加载时自动计算一次
+        window.onload = function() {
+            calculatePyramid();
+        };
+    </script>
+</body>
+</html> 

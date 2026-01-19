@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>胶体溢出效果测试 - 独立模型版本</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .test-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-info h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .test-info p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .feature-list {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .feature-list h3 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+            color: #555;
+        }
+        .improvement-list {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .improvement-list h3 {
+            color: #856404;
+            margin-top: 0;
+        }
+        .test-link {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .test-link:hover {
+            background: #45a049;
+        }
+        .code-block {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            border-left: 3px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h2>胶体溢出效果重新修正完成</h2>
+        <p>我已经重新修正了胶体溢出效果，解决了形状、位置和方向的问题，现在溢胶体应该正确显示为向下凹陷的半圆柱形凹槽。</p>
+        
+        <div class="improvement-list">
+            <h3>🔧 最新修正：</h3>
+            <ul>
+                <li>✅ <strong>修正形状问题</strong>：从实心半圆柱体改为向下凹陷的半圆柱形凹槽</li>
+                <li>✅ <strong>修正位置问题</strong>：溢胶体现在正确位于主胶体底部中心</li>
+                <li>✅ <strong>修正方向问题</strong>：凹槽底部现在正确向下凹陷，而不是向上凸出</li>
+                <li>✅ <strong>几何体重新设计</strong>：创建了真正的凹槽几何体，包含开口面、侧面和底部</li>
+            </ul>
+        </div>
+        
+        <div class="feature-list">
+            <h3>🎯 修正后的功能特性：</h3>
+            <ul>
+                <li>✅ <strong>正确的凹槽形状</strong>：向下凹陷的半圆柱形凹槽，符合胶体溢出效果</li>
+                <li>✅ <strong>准确的位置</strong>：位于主胶体底部中心，与主胶体底部平齐</li>
+                <li>✅ <strong>正确的方向</strong>：凹槽向下凹陷，形成胶体受挤压溢出的视觉效果</li>
+                <li>✅ <strong>完整的几何体</strong>：包含开口面、侧面和底部，形成完整的凹槽</li>
+                <li>✅ <strong>可调节参数</strong>：溢出半径和凹陷深度可以独立调节</li>
+                <li>✅ <strong>独立控制</strong>：可以单独显示/隐藏溢胶体</li>
+            </ul>
+        </div>
+        
+        <div class="feature-list">
+            <h3>🔧 技术修正细节：</h3>
+            <ul>
+                <li><strong>几何体重新设计</strong>：创建凹槽开口面和底部，而不是实心半圆柱体</li>
+                <li><strong>位置计算修正</strong>：溢胶体中心位于主胶体底部（curr位置）</li>
+                <li><strong>方向修正</strong>：凹槽底部使用 <code>-y</code> 确保向下凹陷</li>
+                <li><strong>索引修正</strong>：正确生成凹槽的侧面和底部三角形</li>
+                <li><strong>法线计算</strong>：确保几何体法线方向正确</li>
+            </ul>
+        </div>
+        
+        <div class="code-block">
+            <strong>关键修正：</strong><br>
+            // 修正前：创建实心半圆柱体（向上凸出）<br>
+            // 修正后：创建向下凹陷的半圆柱形凹槽<br>
+            const offset = binormal.clone().multiplyScalar(x).add(normal.clone().multiplyScalar(-y));<br>
+            // 使用 -y 确保凹槽底部向下凹陷
+        </div>
+        
+        <p><strong>使用方法：</strong></p>
+        <ol>
+            <li>点击下面的链接打开胶体模拟生成器</li>
+            <li>加载3D点数据（点击"加载3D点数据"按钮）</li>
+            <li>在右侧控制面板中找到"溢出效果参数"组调整参数</li>
+            <li>使用"显示溢出胶体"复选框控制显示</li>
+            <li>调整"溢出半径"和"凹陷深度"滑块改变效果</li>
+        </ol>
+        
+        <a href="polyline_cube_generator.html" class="test-link">打开胶体模拟生成器</a>
+    </div>
+</body>
+</html>
