@@ -399,6 +399,116 @@
         .map-legend-label {
             text-align: center;
         }
+        
+        /* 下载按钮样式 */
+        .download-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(79, 195, 247, 0.9);
+            border: 2px solid rgba(79, 195, 247, 0.6);
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .download-btn:hover {
+            background: rgba(79, 195, 247, 1);
+            border-color: rgba(79, 195, 247, 0.9);
+            box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .download-btn:active {
+            transform: translateY(0);
+        }
+        
+        .download-btn:disabled {
+            background: rgba(79, 195, 247, 0.3);
+            border-color: rgba(79, 195, 247, 0.2);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        /* 降雨距平差图例样式 */
+        .rain-legend {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(15, 23, 42, 0.98);
+            border: 2px solid rgba(79, 195, 247, 0.6);
+            border-radius: 6px;
+            padding: 10px 8px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        .rain-legend-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+        
+        .rain-legend-gradient {
+            width: 20px;
+            height: 200px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        .rain-legend-segment {
+            flex: 1;
+            width: 100%;
+        }
+        
+        .rain-legend-labels {
+            display: flex;
+            flex-direction: column;
+            font-size: 10px;
+            color: #94a3b8;
+            height: 200px;
+            justify-content: space-between;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .rain-legend-label {
+            text-align: right;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        
+        .rain-legend-bottom-block {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            width: 100%;
+            justify-content: flex-end;
+        }
+        
+        .rain-legend-bottom-color {
+            width: 20px;
+            height: 20px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
@@ -435,7 +545,9 @@
             <!-- 顶部中间：世界地图 -->
             <div class="panel top-center">
                 <div class="panel-title">24/25榨季全球主要产糖国分布(万吨)</div>
-                <div class="chart-container" id="world-map"></div>
+                <div class="chart-container" id="world-map" style="position: relative;">
+                    <button id="download-kriging-btn" class="download-btn" disabled>下载插值图</button>
+                </div>
             </div>
             
             <!-- 右侧列容器 - 包含2个模块 -->
@@ -463,10 +575,13 @@
                 <div class="chart-container" id="temperature-chart"></div>
             </div>
             
-            <!-- 底部中间右侧：主要出口国食糖出口量占比 -->
+            <!-- 底部中间右侧：未来10天降雨距平差 -->
             <div class="panel bottom-right">
-                <div class="panel-title">24/25榨季主要出口国食糖出口量占比</div>
-                <div class="chart-container" id="export-share-chart"></div>
+                <div class="panel-title">未来10天降雨距平差</div>
+                <div class="chart-container" id="export-share-chart" style="position: relative;">
+                    <img src="images/kriging/rain.png" alt="未来10天降雨距平差" style="width: 100%; height: 100%; object-fit: contain;">
+                    <div class="rain-legend" id="rain-legend"></div>
+                </div>
             </div>
             
             <!-- 底部中间：地区综合统计表 -->
@@ -529,7 +644,7 @@
         
         // 0. 广西省面积统计图
         const areaChart = echarts.init(document.getElementById('area-chart'));
-        
+        const krigingColors = ['#0fa00f', '#37d23c', '#78f573', '#bafaaa', '#e6ffe1', '#ffffff', '#e1b1b4', '#b48c82', '#8c645a', '#643c32','#fffaaa'];
         // 加载面积数据并初始化图表
         fetch('data/area.json')
             .then(response => response.json())
@@ -642,6 +757,7 @@
         let chinaBoundary = null;
         let interpolationLayer = null;
         let samplePointsLayer = null;
+        let currentKrigingImageDataUrl = null; // 保存当前插值图的图片数据
         
         // 检查点是否在中国边界内
         function pointInPolygon(point, polygon) {
@@ -731,7 +847,7 @@
         }
         
         // 使用 Kriging 进行插值
-        function performKrigingInterpolation(points, bounds, gridSize = 125) {
+        function performKrigingInterpolation(points, bounds, gridSize = 300) {
             if (typeof kriging === 'undefined') {
                 console.error('kriging.js 未加载');
                 return null;
@@ -863,6 +979,13 @@
                 map.removeLayer(samplePointsLayer);
             }
             
+            // 重置图片数据和下载按钮状态
+            currentKrigingImageDataUrl = null;
+            const downloadBtn = document.getElementById('download-kriging-btn');
+            if (downloadBtn) {
+                downloadBtn.disabled = true;
+            }
+            
             const { grid, bounds, points, width } = interpolationResult;
             
             // kriging.grid 返回的网格格式：grid[x][y]，其中 x 和 y 是索引
@@ -894,21 +1017,18 @@
             // 更新图例
             updateMapLegend(minValue, maxValue);
             
-            // 生成随机颜色数组（每次绘制时生成新的色系）
-            function generateRandomColors(count = 5) {
-                const colors = [];
-                for (let i = 0; i < count; i++) {
-                    colors.push({
-                        r: Math.floor(Math.random() * 256),
-                        g: Math.floor(Math.random() * 256),
-                        b: Math.floor(Math.random() * 256)
-                    });
-                }
-                return colors;
+            // 将十六进制颜色转换为 RGB 对象
+            function hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : null;
             }
             
-            // 生成随机色系
-            const colors = generateRandomColors(5);
+            // 使用 krigingColors 数组中的颜色
+            const colors = krigingColors.map(hex => hexToRgb(hex)).filter(c => c !== null);
             
             // 改进的颜色映射函数 - 使用线性插值实现平滑过渡
             function getColor(value) {
@@ -1124,6 +1244,15 @@
                 // 将 Canvas 转换为图片
                 const imageDataUrl = canvas.toDataURL('image/png');
                 
+                // 保存图片数据到全局变量，用于下载
+                currentKrigingImageDataUrl = imageDataUrl;
+                
+                // 启用下载按钮
+                const downloadBtn = document.getElementById('download-kriging-btn');
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                }
+                
                 // 关键：Canvas 的尺寸是基于当前地图视图的，所以边界框也应该使用当前地图视图的边界
                 // 这样才能确保图片与 Canvas 绘制的内容完全匹配
                 const currentBounds = map.getBounds();
@@ -1212,11 +1341,11 @@
             const bounds = getChinaBounds(chinaBoundary);
             
             // 使用日期作为种子生成随机点
-            const randomPoints = generateRandomPointsInChinaWithSeed(chinaBoundary, 1000, numericSeed);
+            const randomPoints = generateRandomPointsInChinaWithSeed(chinaBoundary, 100, numericSeed);
             console.log(`生成了 ${randomPoints.length} 个随机采样点`);
             
             // 执行 Kriging 插值
-            const interpolationResult = performKrigingInterpolation(randomPoints, bounds, 125);
+            const interpolationResult = performKrigingInterpolation(randomPoints, bounds);
             
             if (interpolationResult) {
                 // 绘制插值结果（会自动生成图片）
@@ -1225,7 +1354,7 @@
                 console.error('Kriging 插值失败');
             }
         }
-        
+
         // 初始化 Leaflet 地图和 Kriging 插值
         function initLeafletKrigingMap() {
             // 初始化 Leaflet 地图
@@ -1295,6 +1424,27 @@
                     if (temperatureDatePicker) {
                         temperatureDatePicker.addEventListener('change', function(e) {
                             updateMapInterpolation(e.target.value);
+                        });
+                    }
+                    
+                    // 绑定下载按钮事件
+                    const downloadBtn = document.getElementById('download-kriging-btn');
+                    if (downloadBtn) {
+                        downloadBtn.addEventListener('click', function() {
+                            if (currentKrigingImageDataUrl) {
+                                // 创建下载链接
+                                const link = document.createElement('a');
+                                link.href = currentKrigingImageDataUrl;
+                                // 生成文件名（包含当前日期）
+                                const dateStr = rainDatePicker ? rainDatePicker.value : new Date().toISOString().split('T')[0];
+                                link.download = `kriging插值图_${dateStr}.png`;
+                                // 触发下载
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            } else {
+                                alert('暂无可下载的插值图，请等待图片生成完成');
+                            }
                         });
                     }
                 })
@@ -1683,66 +1833,47 @@
         // };
         // productionShareChart.setOption(productionShareOption);
         
-        // 6. 主要出口国食糖出口量占比
-        let exportShareChart = null;
-        const exportShareElement = document.getElementById('export-share-chart');
-        if (exportShareElement) {
-            exportShareChart = echarts.init(exportShareElement);
-            const exportShareOption = {
-            backgroundColor: 'transparent',
-            tooltip: {
-                trigger: 'item',
-                formatter: '{b}: {c}% ({d}%)'
-            },
-            legend: {
-                orient: 'vertical',
-                right: 10,
-                top: 'center',
-                textStyle: {
-                    color: '#cbd5e1',
-                    fontSize: 10
-                }
-            },
-            series: [{
-                name: '出口量占比',
-                type: 'pie',
-                radius: ['40%', '70%'],
-                center: ['40%', '50%'],
-                avoidLabelOverlap: false,
-                itemStyle: {
-                    borderRadius: 5,
-                    borderColor: '#0a0e27',
-                    borderWidth: 2
-                },
-                label: {
-                    show: true,
-                    formatter: '{b}\n{d}%',
-                    color: '#fff',
-                    fontSize: 10
-                },
-                emphasis: {
-                    label: {
-                        show: true,
-                        fontSize: 12,
-                        fontWeight: 'bold'
-                    }
-                },
-                data: [
-                    {value: 59.0, name: '巴西', itemStyle: {color: '#1e3a8a'}},
-                    {value: 13.3, name: '泰国', itemStyle: {color: '#3b82f6'}},
-                    {value: 6.0, name: '澳大利亚', itemStyle: {color: '#60a5fa'}},
-                    {value: 5.1, name: '印度', itemStyle: {color: '#4ade80'}},
-                    {value: 4.0, name: '法国', itemStyle: {color: '#86efac'}},
-                    {value: 3.0, name: '德国', itemStyle: {color: '#fbbf24'}},
-                    {value: 2.8, name: '阿联酋', itemStyle: {color: '#fb923c'}},
-                    {value: 2.5, name: '危地马拉', itemStyle: {color: '#f87171'}},
-                    {value: 2.5, name: '巴基斯坦', itemStyle: {color: '#ef4444'}},
-                    {value: 1.8, name: '墨西哥', itemStyle: {color: '#dc2626'}}
-                ]
-            }]
-            };
-            exportShareChart.setOption(exportShareOption);
+        // 6. 未来10天降雨距平差图例
+        function createRainLegend() {
+            const legendElement = document.getElementById('rain-legend');
+            if (!legendElement) return;
+            
+            // 根据krigingColors生成图例
+            // krigingColors: ['#0fa00f', '#37d23c', '#78f573', '#bafaaa', '#e6ffe1', '#ffffff', '#e1b1b4', '#b48c82', '#8c645a', '#643c32','#fffaaa']
+            // 对应的数值：100, 75, 50, 25, 15, -15, -25, -50, -75, -100, 底部黄色
+            const legendValues = [100, 75, 50, 25, 15, -15, -25, -50, -75, -100];
+            const colors = krigingColors.slice(0, 10); // 前10个颜色对应数值
+            const bottomColor = krigingColors[10]; // 最后一个黄色
+            
+            // 创建渐变条和标签容器
+            let gradientHtml = '<div class="rain-legend-gradient">';
+            // 从顶部到底部，对应从100到-100
+            for (let i = 0; i < colors.length; i++) {
+                gradientHtml += `<div class="rain-legend-segment" style="background-color: ${colors[i]};"></div>`;
+            }
+            gradientHtml += '</div>';
+            
+            // 创建标签
+            let labelsHtml = '<div class="rain-legend-labels">';
+            // 从顶部到底部显示数值
+            for (let i = 0; i < legendValues.length; i++) {
+                labelsHtml += `<div class="rain-legend-label">${legendValues[i]}</div>`;
+            }
+            labelsHtml += '</div>';
+            
+            // 组合颜色条和标签
+            let contentHtml = '<div class="rain-legend-content">' + gradientHtml + labelsHtml + '</div>';
+            
+            // 添加底部黄色块
+            let bottomBlockHtml = `<div class="rain-legend-bottom-block">
+                <div class="rain-legend-bottom-color" style="background-color: ${bottomColor};"></div>
+            </div>`;
+            
+            legendElement.innerHTML = contentHtml + bottomBlockHtml;
         }
+        
+        // 初始化图例
+        createRainLegend();
         
         // 7. 2025年气温变化统计
         const temperatureChart = echarts.init(document.getElementById('temperature-chart'));
@@ -1947,9 +2078,6 @@
             productionChart.resize();
             chinaImportChart.resize();
             rainChart.resize();
-            if (exportShareChart) {
-                exportShareChart.resize();
-            }
             temperatureChart.resize();
         });
     </script>
