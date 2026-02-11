@@ -163,6 +163,16 @@
             flex-direction: column;
             gap: 12px;
             z-index: 10;
+            /* 初始状态：隐藏在左侧 */
+            opacity: 0;
+            transform: translateX(-100%);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        
+        /* 左侧列动画完成状态 */
+        .left-column.animate-in {
+            opacity: 1;
+            transform: translateX(0);
         }
         
         /* 中间地图 - 铺满整个区域 */
@@ -203,6 +213,16 @@
             flex-direction: column;
             gap: 12px;
             z-index: 10;
+            /* 初始状态：隐藏在右侧 */
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        
+        /* 右侧列动画完成状态 */
+        .right-column.animate-in {
+            opacity: 1;
+            transform: translateX(0);
         }
         
         /* 左侧2个模块 - 每个模块平均分配高度 */
@@ -252,6 +272,24 @@
         
         #world-map .leaflet-control-zoom a:hover {
             background-color: rgba(241, 245, 249, 0.9);
+        }
+        
+        /* 城市信息框样式 */
+        .city-info-popup .leaflet-popup-content-wrapper {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 0;
+        }
+        
+        .city-info-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .city-info-popup .leaflet-popup-tip {
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(203, 213, 225, 0.3);
         }
         
         /* 调整缩放控件位置，避免被左侧面板盖住 */
@@ -352,6 +390,19 @@
             height: 100%;
             max-height: 300px;
             overflow: hidden;
+            /* 初始状态：隐藏在底部 */
+            opacity: 0;
+            transform: translateY(100%);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        
+        /* 底部面板动画完成状态 */
+        .bottom-left.animate-in,
+        .bottom-center-left.animate-in,
+        .bottom-center-right.animate-in,
+        .bottom-right.animate-in {
+            opacity: 1;
+            transform: translateY(0);
         }
         
         /* 底部行的图表容器需要更小的最小高度 */
@@ -845,7 +896,7 @@
         
         #weather-alarm-table th:nth-child(2),
         #weather-alarm-table td:nth-child(2) {
-            text-align: right;
+            text-align: left;
         }
         
         #weather-alarm-table tbody tr {
@@ -1110,8 +1161,8 @@
                     <table class="data-table" id="weather-alarm-table">
                         <thead>
                             <tr>
-                                <th>预警标题</th>
-                                <th>预警描述</th>
+                                <th>预警信息列表</th>
+                                <th>详细信息</th>
                             </tr>
                         </thead>
                         <tbody id="weather-alarm-tbody">
@@ -1141,9 +1192,55 @@
             }
         }
         
-        // 页面加载时更新日期
+        // 页面加载时更新日期和触发面板动画
         document.addEventListener('DOMContentLoaded', function() {
             updateDate();
+            
+            // 触发面板进入动画
+            function triggerPanelAnimations() {
+                // 使用requestAnimationFrame确保动画在下一帧触发
+                requestAnimationFrame(() => {
+                    // 左侧列：从左到右进入
+                    const leftColumn = document.querySelector('.left-column');
+                    if (leftColumn) {
+                        setTimeout(() => {
+                            leftColumn.classList.add('animate-in');
+                        }, 100);
+                    }
+                    
+                    // 右侧列：从右到左进入
+                    const rightColumn = document.querySelector('.right-column');
+                    if (rightColumn) {
+                        setTimeout(() => {
+                            rightColumn.classList.add('animate-in');
+                        }, 200);
+                    }
+                    
+                    // 底部面板：自底向上进入（依次延迟，形成波浪效果）
+                    const bottomPanels = [
+                        document.querySelector('.bottom-left'),
+                        document.querySelector('.bottom-center-left'),
+                        document.querySelector('.bottom-center-right'),
+                        document.querySelector('.bottom-right')
+                    ];
+                    
+                    bottomPanels.forEach((panel, index) => {
+                        if (panel) {
+                            setTimeout(() => {
+                                panel.classList.add('animate-in');
+                            }, 300 + index * 100); // 每个面板延迟100ms
+                        }
+                    });
+                });
+            }
+            
+            // 页面完全加载后触发动画
+            if (document.readyState === 'loading') {
+                window.addEventListener('load', triggerPanelAnimations);
+            } else {
+                // 如果页面已经加载完成，直接触发
+                setTimeout(triggerPanelAnimations, 50);
+            }
         });
         
         // 浅色主题配置
@@ -1180,13 +1277,13 @@
             {
                 name: 'plant',
                 type: 'wms',
-                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi/MapServer/WmsServer',
-                layers: '1', // WMS图层名称或ID，可能需要根据实际服务调整
+                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi2/MapServer/WmsServer',
+                layers: '0', // WMS图层名称或ID，可能需要根据实际服务调整
                 format: 'image/png',
                 transparent: true,
                 extent: [102.82104492187501, 20.447602397594167, 113.69750976562501, 26.82407078047018],
                 legendType: 'solid', // 纯色图例
-                legendColor: '#FFD700', // 纯黄色
+                legendColor: '#9ac698', // 纯黄色
                 legendTitle: '甘蔗种植分布',
                 legendMin: 0,
                 legendMax: 100
@@ -1194,13 +1291,13 @@
             {
                 name: 'production',
                 type: 'wms',
-                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi/MapServer/WmsServer',
-                layers: '0', // WMS图层名称或ID，可能需要根据实际服务调整
+                url: 'http://39.170.97.139:6080/arcgis/services/oge/guangxi2/MapServer/WmsServer',
+                layers: '1', // WMS图层名称或ID，可能需要根据实际服务调整
                 format: 'image/png',
                 transparent: true,
                 extent: [102.82104492187501, 20.447602397594167, 113.69750976562501, 26.82407078047018],
                 legendType: 'gradient', // 渐变色图例
-                legendColors: ['#00FF00', '#FFFF00', '#FF0000'], // 绿黄红渐变色系
+                legendColors: ['#ff20ff', '#2401ff', '#0efefa', '#ffec01', '#9a2401'], // 绿黄红渐变色系
                 legendTitle: '甘蔗产量分布',
                 legendMin: 1.34,
                 legendMax: 10.25
@@ -1215,13 +1312,46 @@
         }
         
         // 加载种植面积数据并生成表格
-        fetch('data/leftTable.json')
-            .then(response => response.json())
-            .then(data => {
+        Promise.all([
+            fetch('data/leftTable.json').then(response => response.json()),
+            fetch('data/production.json').then(response => response.json())
+        ])
+            .then(([leftTableData, productionData]) => {
+                // 创建城市数据映射
+                cityDataMap = {};
+                
+                // 处理leftTable.json数据
+                leftTableData.forEach(item => {
+                    if (item.地市 && item.地市 !== '合计') {
+                        const cityName = item.地市.replace(/市$/, ''); // 移除末尾的"市"字，如"南宁市" -> "南宁"
+                        const plantingArea = item['当期种植面积（万亩）'] ? item['当期种植面积（万亩）'].trim() : '';
+                        const yearOnYear = item.同比 ? item.同比.trim() : '';
+                        cityDataMap[cityName] = {
+                            种植面积: plantingArea || '-',
+                            同比: yearOnYear || '-'
+                        };
+                    }
+                });
+                
+                // 处理production.json数据
+                productionData.forEach(item => {
+                    if (item.地名) {
+                        const cityName = item.地名.replace(/市$/, ''); // 移除末尾的"市"字
+                        if (cityDataMap[cityName]) {
+                            cityDataMap[cityName].总产量 = item['总产（万吨）'] ? item['总产（万吨）'].toFixed(2) : '-';
+                        } else {
+                            cityDataMap[cityName] = {
+                                总产量: item['总产（万吨）'] ? item['总产（万吨）'].toFixed(2) : '-'
+                            };
+                        }
+                    }
+                });
+                
+                // 生成表格
                 const tbody = document.getElementById('planting-area-tbody');
                 tbody.innerHTML = ''; // 清空现有内容
                 
-                data.forEach(item => {
+                leftTableData.forEach(item => {
                     const row = document.createElement('tr');
                     
                     // 生成随机的同比和环比值
@@ -1240,9 +1370,9 @@
                 });
             })
             .catch(error => {
-                console.error('加载种植面积数据失败:', error);
+                console.error('加载数据失败:', error);
                 const tbody = document.getElementById('planting-area-tbody');
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#f87171;">数据加载失败，请检查 data/leftTable.json 文件</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#f87171;">数据加载失败，请检查 data/leftTable.json 和 data/production.json 文件</td></tr>';
             });
         
         // 1. Leaflet 地图（已去除 kriging 动态插值逻辑）
@@ -1263,6 +1393,7 @@
         let guangxiCityLayer = null; // 广西地级市填充图层
         let currentViewLevel = 'world'; // 当前视图级别：'world', 'china', 'guangxi'
         let isZoomSwitching = false; // 标志：是否正在通过缩放切换图层，防止循环触发
+        let cityDataMap = {}; // 存储城市数据映射 {城市名: {种植面积, 同比, 总产量}}
         
         // 获取中国边界的边界框
         function getChinaBounds(geojson) {
@@ -1306,7 +1437,6 @@
         // 创建地图图例
         function createMapLegend() {
             if (!map) return;
-            
             // 如果图例已存在，先移除
             if (mapLegendControl) {
                 map.removeControl(mapLegendControl);
@@ -1690,6 +1820,8 @@
                         color: #334155;
                         font-size: 12px;
                         min-width: 120px;
+                        right: 520px;
+                        bottom: 320px;
                     `;
                     
                     div.innerHTML = `<div style="margin-bottom: 8px; color: #475569; font-weight: bold;">${title}</div>`;
@@ -1745,6 +1877,8 @@
                         color: #334155;
                         font-size: 12px;
                         min-width: 120px;
+                        right: 520px;
+                        bottom: 320px;
                     `;
                     
                     div.innerHTML = `<div style="margin-bottom: 8px; color: #475569; font-size:12px;">${title}(吨/亩)</div>`;
@@ -1999,13 +2133,98 @@
                             };
                         },
                         onEachFeature: function(feature, layer) {
+                            const cityName = feature.properties ? feature.properties.name : '';
+                            
+                            // 创建信息框内容函数
+                            function getCityInfoPopup(cityName) {
+                                const cityNameClean = cityName.replace(/市$/, ''); // 移除末尾的"市"字
+                                // 确保cityDataMap已初始化
+                                const cityData = (cityDataMap && cityDataMap[cityNameClean]) || {};
+                                
+                                const plantingArea = cityData.种植面积 || '-';
+                                const yearOnYear = cityData.同比 || generateRandomPercentage();
+                                const totalProduction = cityData.总产量 || '-';
+                                
+                                // 格式化显示
+                                const plantingAreaDisplay = plantingArea !== '-' ? `${plantingArea} 万亩` : '-';
+                                const totalProductionDisplay = totalProduction !== '-' ? `${totalProduction} 万吨` : '-';
+                                
+                                return `
+                                    <div style="
+                                        font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+                                        min-width: 200px;
+                                        padding: 8px;
+                                    ">
+                                        <div style="
+                                            font-size: 16px;
+                                            font-weight: bold;
+                                            color: #1e293b;
+                                            margin-bottom: 12px;
+                                            border-bottom: 2px solid #4fc3f7;
+                                            padding-bottom: 6px;
+                                        ">${cityName}</div>
+                                        <div style="
+                                            font-size: 14px;
+                                            color: #334155;
+                                            line-height: 1.8;
+                                        ">
+                                            <div style="margin-bottom: 8px;">
+                                                <span style="color: #64748b; font-weight: 500;">种植面积：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${plantingAreaDisplay}</span>
+                                            </div>
+                                            <div style="margin-bottom: 8px;">
+                                                <span style="color: #64748b; font-weight: 500;">同比：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${yearOnYear}</span>
+                                            </div>
+                                            <div>
+                                                <span style="color: #64748b; font-weight: 500;">总产量：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${totalProductionDisplay}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
                             // 为广西添加点击事件
                             layer.on('click', function() {
                                 focusOnGuangxi(geojson);
                             });
-                            layer.on('mouseover', function() {
-                                // 鼠标悬停时增加透明度（仅在缩放级别小于等于8时生效）
-                                if (map && map.getZoom() <= 8) {
+                            
+                            // 鼠标移动事件（仅在缩放级别6-8时显示信息框并跟随鼠标）
+                            layer.on('mousemove', function(e) {
+                                const zoom = map ? map.getZoom() : 0;
+                                
+                                if (zoom >= 6 && zoom <= 8) {
+                                    // 显示或更新信息框位置
+                                    if (cityName) {
+                                        if (!layer._infoPopup) {
+                                            // 创建信息框
+                                            const popupContent = getCityInfoPopup(cityName);
+                                            layer._infoPopup = L.popup({
+                                                className: 'city-info-popup',
+                                                maxWidth: 300,
+                                                closeButton: true,
+                                                autoPan: false, // 禁用自动平移，让popup跟随鼠标
+                                                offset: [0, -10]
+                                            })
+                                            .setContent(popupContent)
+                                            .setLatLng(e.latlng)
+                                            .openOn(map);
+                                        } else {
+                                            // 更新信息框位置
+                                            layer._infoPopup.setLatLng(e.latlng);
+                                        }
+                                    }
+                                    
+                                    // 高亮样式
+                                    layer.setStyle({
+                                        color: '#4fc3f7',
+                                        weight: 3,
+                                        fillColor: '#4fc3f7',
+                                        fillOpacity: 0.2
+                                    });
+                                } else if (zoom <= 8) {
+                                    // 缩放级别小于6时，只显示高亮效果
                                     layer.setStyle({
                                         color: '#4fc3f7',
                                         weight: 3,
@@ -2014,9 +2233,24 @@
                                     });
                                 }
                             });
+                            
                             layer.on('mouseout', function() {
-                                // 鼠标离开时恢复默认透明度（仅在缩放级别小于等于8时生效）
-                                if (map && map.getZoom() <= 8) {
+                                const zoom = map ? map.getZoom() : 0;
+                                
+                                // 关闭信息框
+                                if (layer._infoPopup) {
+                                    map.closePopup(layer._infoPopup);
+                                    layer._infoPopup = null;
+                                }
+                                
+                                if (zoom >= 6 && zoom <= 8) {
+                                    layer.setStyle({
+                                        color: '#4fc3f7',
+                                        weight: 2,
+                                        fillColor: '#4fc3f7',
+                                        fillOpacity: 0.1
+                                    });
+                                } else if (zoom <= 8) {
                                     layer.setStyle({
                                         color: '#4fc3f7',
                                         weight: 2,
@@ -2025,6 +2259,17 @@
                                     });
                                 }
                             });
+                            
+                            // 当缩放级别改变时，关闭该layer的信息框
+                            if (map) {
+                                map.on('zoomend', function() {
+                                    const zoom = map.getZoom();
+                                    if ((zoom < 6 || zoom > 8) && layer._infoPopup) {
+                                        map.closePopup(layer._infoPopup);
+                                        layer._infoPopup = null;
+                                    }
+                                });
+                            }
                         }
                     });
                     
@@ -2254,9 +2499,85 @@
                                 });
                             }
                             
-                            // 鼠标悬停效果（仅在缩放级别小于等于8时生效）
-                            layer.on('mouseover', function() {
-                                if (map && map.getZoom() <= 8) {
+                            // 创建信息框内容函数
+                            function getCityInfoPopup(cityName) {
+                                const cityNameClean = cityName.replace(/市$/, ''); // 移除末尾的"市"字
+                                // 确保cityDataMap已初始化
+                                const cityData = (cityDataMap && cityDataMap[cityNameClean]) || {};
+                                
+                                const plantingArea = cityData.种植面积 || '-';
+                                const yearOnYear = cityData.同比 || '-';
+                                const totalProduction = cityData.总产量 || '-';
+                                
+                                // 格式化显示
+                                const plantingAreaDisplay = plantingArea !== '-' ? `${plantingArea} 万亩` : '-';
+                                const totalProductionDisplay = totalProduction !== '-' ? `${totalProduction} 万吨` : '-';
+                                
+                                return `
+                                    <div style="
+                                        font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+                                        min-width: 200px;
+                                        padding: 8px;
+                                    ">
+                                        <div style="
+                                            font-size: 16px;
+                                            font-weight: bold;
+                                            color: #1e293b;
+                                            margin-bottom: 12px;
+                                            border-bottom: 2px solid #4fc3f7;
+                                            padding-bottom: 6px;
+                                        ">${cityName}</div>
+                                        <div style="
+                                            font-size: 14px;
+                                            color: #334155;
+                                            line-height: 1.8;
+                                        ">
+                                            <div style="margin-bottom: 8px;">
+                                                <span style="color: #64748b; font-weight: 500;">种植面积：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${plantingAreaDisplay}</span>
+                                            </div>
+                                            <div style="margin-bottom: 8px;">
+                                                <span style="color: #64748b; font-weight: 500;">同比：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${yearOnYear}</span>
+                                            </div>
+                                            <div>
+                                                <span style="color: #64748b; font-weight: 500;">总产量：</span>
+                                                <span style="color: #1e293b; font-weight: 600;">${totalProductionDisplay}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
+                            // 鼠标悬停效果（仅在缩放级别6-8时显示信息框）
+                            layer.on('mouseover', function(e) {
+                                const zoom = map ? map.getZoom() : 0;
+                                
+                                if (zoom >= 6 && zoom <= 8) {
+                                    // 显示信息框
+                                    if (cityName && !layer._infoPopup) {
+                                        const popupContent = getCityInfoPopup(cityName);
+                                        layer._infoPopup = L.popup({
+                                            className: 'city-info-popup',
+                                            maxWidth: 300,
+                                            closeButton: true,
+                                            autoPan: true,
+                                            offset: [0, -10]
+                                        })
+                                        .setContent(popupContent)
+                                        .setLatLng(e.latlng)
+                                        .openOn(map);
+                                    }
+                                    
+                                    // 高亮样式
+                                    layer.setStyle({
+                                        color: '#4fc3f7',
+                                        weight: 3,
+                                        fillColor: fillColor,
+                                        fillOpacity: 0.2
+                                    });
+                                } else if (zoom <= 8) {
+                                    // 缩放级别小于6时，只显示高亮效果
                                     layer.setStyle({
                                         color: '#4fc3f7',
                                         weight: 3,
@@ -2265,8 +2586,25 @@
                                     });
                                 }
                             });
+                            
                             layer.on('mouseout', function() {
-                                if (map && map.getZoom() <= 8) {
+                                const zoom = map ? map.getZoom() : 0;
+                                
+                                // 关闭信息框
+                                if (layer._infoPopup) {
+                                    map.closePopup(layer._infoPopup);
+                                    layer._infoPopup = null;
+                                }
+                                
+                                if (zoom >= 6 && zoom <= 8) {
+                                    const fillColor = layer._originalFillColor || fillColor;
+                                    layer.setStyle({
+                                        color: '#4fc3f7',
+                                        weight: 2,
+                                        fillColor: fillColor,
+                                        fillOpacity: 0.1
+                                    });
+                                } else if (zoom <= 8) {
                                     const fillColor = layer._originalFillColor || fillColor;
                                     layer.setStyle({
                                         color: '#4fc3f7',
@@ -2285,6 +2623,17 @@
                                     });
                                 }
                             });
+                            
+                            // 当缩放级别改变时，关闭该layer的信息框
+                            if (map) {
+                                map.on('zoomend', function() {
+                                    const zoom = map.getZoom();
+                                    if ((zoom < 6 || zoom > 8) && layer._infoPopup) {
+                                        map.closePopup(layer._infoPopup);
+                                        layer._infoPopup = null;
+                                    }
+                                });
+                            }
                         }
                     });
                     
@@ -3088,7 +3437,7 @@
                         }
                     });
                 }, 500);
-            }, 5000);
+            }, 10000);
         }
         
         // 初始化气象灾害预警
