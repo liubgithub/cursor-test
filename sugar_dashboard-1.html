@@ -758,6 +758,7 @@
         let interpolationLayer = null;
         let samplePointsLayer = null;
         let currentKrigingImageDataUrl = null; // 保存当前插值图的图片数据
+        let guangxiLayer = null; // 广西边界图层
         
         // 检查点是否在中国边界内
         function pointInPolygon(point, polygon) {
@@ -774,6 +775,37 @@
             }
             
             return inside;
+        }
+        
+        function loadGuangxiBoundary(highlightOnly = false, adjustView = true) {
+            if (!map) return;
+            
+            fetch('data/guangxi.geojson')
+                .then(response => response.json())
+                .then(geojson => {
+                    // 移除之前的广西边界图层
+                    if (guangxiLayer) {
+                        map.removeLayer(guangxiLayer);
+                    }
+                    
+                    // 创建广西边界图层
+                    guangxiLayer = L.geoJSON(geojson, {
+                        style: function(feature) {
+                            // 默认样式：透明填充，边线颜色和中国一样
+                            return {
+                                color: '#545454',
+                                weight: 1,
+                                fillColor: '#4fc3f7',
+                                fillOpacity: 0.0,
+                                opacity: 1
+                            };
+                        } });
+                    
+                    guangxiLayer.addTo(map);
+                })
+                .catch(error => {
+                    console.error('加载广西边界数据失败:', error);
+                });
         }
         
         // 检查点是否在 GeoJSON 多边形内
@@ -1354,7 +1386,7 @@
                 console.error('Kriging 插值失败');
             }
         }
-
+        let cityLabels = [];
         // 初始化 Leaflet 地图和 Kriging 插值
         function initLeafletKrigingMap() {
             // 初始化 Leaflet 地图
@@ -1425,7 +1457,7 @@
                     
                     // 初始生成插值图（使用今天的日期）
                     updateMapInterpolation(today);
-                    
+                    createCityLabels(geojson);
                     // 绑定日期选择器事件
                     if (rainDatePicker) {
                         rainDatePicker.addEventListener('change', function(e) {
@@ -1464,11 +1496,52 @@
                     console.error('加载中国边界数据失败:', error);
                     document.getElementById('world-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;">数据加载失败，请检查 data/china.geojson 文件</div>';
                 });
+            loadGuangxiBoundary();
         }
         
         // 延迟加载，确保DOM和库已准备好
         setTimeout(initLeafletKrigingMap, 100);
         
+        function createCityLabels(geojson) {
+            cityLabels = []; // 清空之前的标注
+            if (geojson.features && geojson.features.length > 0) {
+                geojson.features.forEach(feature => {
+                    if (feature.properties && feature.properties.name) {
+                        const cityName = feature.properties.name;
+                        const center = feature.properties.centroid || feature.properties.center;
+
+                        if (!center || center.length < 2) {
+                            return;
+                        }
+
+                        const label = L.marker([center[1], center[0]], {
+                            icon: L.divIcon({
+                                className: 'city-label',
+                                html: `<div style="
+                                    color: #ffffff;
+                                    font-size: 14px;
+                                    font-weight: bold;
+                                    text-shadow: 2px 2px 4px rgba(0,0,0,0.8),
+                                                    0 0 8px rgba(15, 23, 42, 0.9);
+                                    white-space: nowrap;
+                                    pointer-events: none;
+                                    user-select: none;
+                                ">${cityName}</div>`,
+                                iconSize: [100, 20],
+                                iconAnchor: [50, 10]
+                            }),
+                            interactive: false,
+                            zIndexOffset: 1000
+                        });
+
+                        cityLabels.push(label);
+                        label.addTo(map);
+                    }
+                });
+            }
+            // 根据当前缩放级别显示/隐藏城市名称
+            // updateCityLabelsVisibility();
+        }
         // 2. 2025年产量情况（饼图）
         const productionChart = echarts.init(document.getElementById('production-chart'));
         
